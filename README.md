@@ -16,7 +16,7 @@ The main goal of this project is to implement standard card game logic and creat
 
 ## 🛠️ Technologies Used
 
-* **Engine:** Unity 2019 LTS
+* **Engine:** Unity 2019.2.8f1
 * **Language:** C#
 
 ## 🚀 How to Install & Play
