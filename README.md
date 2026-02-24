@@ -29,7 +29,7 @@ Soon...
 
 ## 👤 Author
 
-**Tymofii Polyvianyi**
+**Tymofii Polyvianyi 25 група**
 
 ---
 *Created for educational purposes.*
