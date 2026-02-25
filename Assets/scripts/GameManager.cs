@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using System.Linq;
 
 public class GameManager : MonoBehaviour
 {
@@ -15,22 +16,21 @@ public class GameManager : MonoBehaviour
     public GameObject bitoVisual;
     public GameObject bitoButton;
     public GameObject takeButton;
+    public Image trumpCardUI;
+    public Image mainDeckUI;
+    public GameObject gameOverScreen;
+    public Text gameOverText;
+
     public bool isFirstTurn = true;
     public bool isPlayerAttacker = true;
-
     public bool isBotTaking = false;
+    public bool isGameOver = false;
 
     public Sprite[] clubsSprites;
     public Sprite[] diamondsSprites;
     public Sprite[] heartsSprites;
     public Sprite[] spadesSprites;
-
-    public Image trumpCardUI;
-    public Image mainDeckUI;
-
-    public GameObject gameOverScreen;
-    public Text gameOverText;
-    public bool isGameOver = false;
+    public Sprite[] jokerSprites;
 
     private List<GameObject> deck = new List<GameObject>();
     public Card.CardSuit trumpSuit;
@@ -40,14 +40,22 @@ public class GameManager : MonoBehaviour
         CreateDeck();
         ShuffleDeck();
         SetTrumpCard();
-        DealCards();
+        StartCoroutine(StartGameRoutine());
+    }
+
+    IEnumerator StartGameRoutine()
+    {
+        yield return StartCoroutine(RefillHandsWithAnimation());
+        DetermineFirstTurn();
     }
 
     void Update()
     {
         if (isGameOver) return;
 
-        if (tableArea.childCount > 0)
+        int cardsOnTable = tableArea.GetComponentsInChildren<Card>().Length;
+
+        if (cardsOnTable > 0)
         {
             if (isPlayerAttacker)
             {
@@ -67,86 +75,78 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    public int GetMaxAttackCards()
+    void DetermineFirstTurn()
     {
-        int maxByRules = isFirstTurn ? 5 : 6;
-        Transform defenderHand = isPlayerAttacker ? enemyHand : playerHand;
-
-        int defenderCapacity = defenderHand.childCount;
-        foreach (Transform t in tableArea)
+        int minPlayerTrump = 100;
+        int minEnemyTrump = 100;
+        foreach (Transform cardTrans in playerHand)
         {
-            if (t.childCount > 0) defenderCapacity++;
+            Card card = cardTrans.GetComponent<Card>();
+            if (card.suit == trumpSuit && (int)card.value < minPlayerTrump)
+                minPlayerTrump = (int)card.value;
+        }
+        foreach (Transform cardTrans in enemyHand)
+        {
+            Card card = cardTrans.GetComponent<Card>();
+            if (card.suit == trumpSuit && (int)card.value < minEnemyTrump)
+                minEnemyTrump = (int)card.value;
         }
 
-        return Mathf.Min(maxByRules, defenderCapacity);
+        if (minPlayerTrump < minEnemyTrump) isPlayerAttacker = true;
+        else if (minEnemyTrump < minPlayerTrump) isPlayerAttacker = false;
+        else isPlayerAttacker = true;
+
+        if (!isPlayerAttacker)
+        {
+            EnemyAI bot = GetComponent<EnemyAI>();
+            if (bot != null) bot.TryToAttack();
+        }
     }
 
-
-    public bool HasCardsToToss(Transform hand)
+    public void DrawCards()
     {
-        if (tableArea.childCount == 0) return false;
-        if (tableArea.childCount >= GetMaxAttackCards()) return false;
+        StartCoroutine(RefillHandsWithAnimation());
+    }
 
-        Card[] tableCards = tableArea.GetComponentsInChildren<Card>();
-        foreach (Transform cardTrans in hand)
+    IEnumerator RefillHandsWithAnimation()
+    {
+        Transform first = isPlayerAttacker ? playerHand : enemyHand;
+        Transform second = isPlayerAttacker ? enemyHand : playerHand;
+        bool firstFaceUp = isPlayerAttacker;
+        bool secondFaceUp = !isPlayerAttacker;
+
+        while (deck.Count > 0 && (first.childCount < 6 || second.childCount < 6))
         {
-            Card handCard = cardTrans.GetComponent<Card>();
-            foreach (Card tc in tableCards)
+            if (first.childCount < 6 && deck.Count > 0)
             {
-                if (handCard.value == tc.value) return true;
+                GiveCardTo(first, firstFaceUp);
+                yield return new WaitForSeconds(0.15f);
+            }
+            if (second.childCount < 6 && deck.Count > 0)
+            {
+                GiveCardTo(second, secondFaceUp);
+                yield return new WaitForSeconds(0.15f);
             }
         }
-        return false;
+
+        if (deck.Count <= 1 && mainDeckUI != null) mainDeckUI.gameObject.SetActive(false);
+        if (deck.Count == 0 && trumpCardUI != null)
+        {
+            Color c = trumpCardUI.color; c.a = 0.35f; trumpCardUI.color = c;
+        }
     }
 
-    public void StartBotTakeTimer()
+    void GiveCardTo(Transform hand, bool faceUp)
     {
-        if (isBotTaking) return;
-        StartCoroutine(BotTakeCoroutine());
-    }
-
-    IEnumerator BotTakeCoroutine()
-    {
-        isBotTaking = true;
-
-
-        if (!HasCardsToToss(playerHand))
+        if (deck.Count > 0)
         {
-            yield return new WaitForSeconds(1.0f);
+            GameObject card = deck[0];
+            deck.RemoveAt(0);
+            card.transform.SetParent(hand, false);
+            card.transform.SetAsLastSibling();
+            card.SetActive(true);
+            card.GetComponent<Card>().FlipCard(faceUp);
         }
-        else
-        {
-            yield return new WaitForSeconds(5.0f); 
-        }
-
-        if (isBotTaking) TakeCards();
-    }
-
-    public void PlayerTakesCards()
-    {
-        StartCoroutine(PlayerTakeCoroutine());
-    }
-
-    IEnumerator PlayerTakeCoroutine()
-    {
-        takeButton.SetActive(false);
-        EnemyAI bot = GetComponent<EnemyAI>();
-
-        bool botTossed = false;
-
-        if (bot != null && HasCardsToToss(enemyHand))
-        {
-            botTossed = true;
-            yield return StartCoroutine(bot.TossAllPossibleCardsCoroutine());
-        }
-
-
-        if (botTossed)
-        {
-            yield return new WaitForSeconds(2.0f);
-        }
-
-        TakeCards();
     }
 
     public void TakeCards()
@@ -160,29 +160,27 @@ public class GameManager : MonoBehaviour
             c.transform.SetParent(tableArea, true);
         }
 
-        while (tableArea.childCount > 0)
+        while (tableArea.GetComponentsInChildren<Card>().Length > 0)
         {
-            Transform cardTransform = tableArea.GetChild(0);
+            Card cardData = tableArea.GetComponentsInChildren<Card>()[0];
+            Transform cardTransform = cardData.transform;
             CardMovement cardMove = cardTransform.GetComponent<CardMovement>();
-            Card cardData = cardTransform.GetComponent<Card>();
 
             cardTransform.SetParent(targetHand, false);
+            cardTransform.localPosition = Vector3.zero;
+            cardTransform.SetAsLastSibling();
+
             if (cardMove != null) cardMove.defaultParent = targetHand;
 
             CanvasGroup cg = cardTransform.GetComponent<CanvasGroup>();
             if (cg != null) cg.blocksRaycasts = true;
 
-            if (!isPlayerAttacker) cardData.FlipCard(true);
-            else cardData.FlipCard(false);
+            cardData.FlipCard(!isPlayerAttacker);
         }
 
         if (isFirstTurn) isFirstTurn = false;
-
-        DrawCards(); 
-
-
-        if (CheckWinCondition()) return;
-
+        DrawCards();
+        CheckWinCondition();
 
         if (!isPlayerAttacker)
         {
@@ -193,16 +191,17 @@ public class GameManager : MonoBehaviour
 
     public void SendToBito()
     {
-        if (isBotTaking)
+        if (isBotTaking) { StopAllCoroutines(); TakeCards(); return; }
+
+        Card[] allCardsOnTable = tableArea.GetComponentsInChildren<Card>();
+        foreach (Card c in allCardsOnTable)
         {
-            StopAllCoroutines();
-            TakeCards();
-            return;
+            c.transform.SetParent(tableArea, true);
         }
 
-        while (tableArea.childCount > 0)
+        while (tableArea.GetComponentsInChildren<Card>().Length > 0)
         {
-            Transform card = tableArea.GetChild(0);
+            Transform card = tableArea.GetComponentsInChildren<Card>()[0].transform;
             card.SetParent(discardPile, false);
             card.gameObject.SetActive(false);
         }
@@ -211,83 +210,59 @@ public class GameManager : MonoBehaviour
         if (bitoVisual != null) bitoVisual.SetActive(true);
 
         DrawCards();
-
         if (CheckWinCondition()) return;
 
         isPlayerAttacker = !isPlayerAttacker;
-
-        if (!isPlayerAttacker)
+        EnemyAI bot = GetComponent<EnemyAI>();
+        if (bot != null)
         {
-            EnemyAI bot = GetComponent<EnemyAI>();
-            if (bot != null) bot.TryToAttack();
-        }
-    }
-
-    public bool AreAllCardsDefended()
-    {
-        if (tableArea.childCount == 0) return false;
-        foreach (Transform attackCard in tableArea)
-        {
-            if (attackCard.childCount == 0) return false;
-        }
-        return true;
-    }
-
-    public void DrawCards()
-    {
-        if (isPlayerAttacker)
-        {
-            RefillHand(playerHand, true);
-            RefillHand(enemyHand, false);
-        }
-        else
-        {
-            RefillHand(enemyHand, false);
-            RefillHand(playerHand, true);
-        }
-
-        if (deck.Count <= 1 && mainDeckUI != null) mainDeckUI.gameObject.SetActive(false);
-        if (deck.Count == 0 && trumpCardUI != null)
-        {
-            Color ghostColor = trumpCardUI.color;
-            ghostColor.a = 0.35f;
-            trumpCardUI.color = ghostColor;
-        }
-    }
-
-    void RefillHand(Transform hand, bool faceUp)
-    {
-        int cardsNeeded = 6 - hand.childCount;
-        for (int i = 0; i < cardsNeeded; i++)
-        {
-            if (deck.Count > 0) GiveCardTo(hand, faceUp);
+            if (!isPlayerAttacker) bot.TryToAttack();
+            bot.UpdateMemory();
         }
     }
 
     void CreateDeck()
     {
+        int deckSize = PlayerPrefs.GetInt("DeckSize", 36);
+        int startValue = (deckSize == 36) ? 6 : 2;
+        deck.Clear();
+
         for (int s = 0; s < 4; s++)
         {
-            for (int v = 6; v <= 14; v++)
+            for (int v = startValue; v <= 14; v++)
             {
                 GameObject newCard = Instantiate(cardPrefab, deckArea);
-                newCard.name = "Card_" + (Card.CardSuit)s + "_" + (Card.CardValue)v;
                 newCard.SetActive(false);
-
                 Card cardScript = newCard.GetComponent<Card>();
                 cardScript.suit = (Card.CardSuit)s;
                 cardScript.value = (Card.CardValue)v;
 
-                int spriteIndex = v - 6;
-                if (s == 0) cardScript.frontSprite = clubsSprites[spriteIndex];
-                else if (s == 1) cardScript.frontSprite = diamondsSprites[spriteIndex];
-                else if (s == 2) cardScript.frontSprite = heartsSprites[spriteIndex];
-                else if (s == 3) cardScript.frontSprite = spadesSprites[spriteIndex];
+                int idx = (int)v - 2;
+                if (s == 0) cardScript.frontSprite = clubsSprites[idx];
+                else if (s == 1) cardScript.frontSprite = diamondsSprites[idx];
+                else if (s == 2) cardScript.frontSprite = heartsSprites[idx];
+                else if (s == 3) cardScript.frontSprite = spadesSprites[idx];
 
-                cardScript.FlipCard(false);
                 deck.Add(newCard);
             }
         }
+
+        if (deckSize == 54)
+        {
+            AddJokerToDeck(Card.CardSuit.Clubs, 0);
+            AddJokerToDeck(Card.CardSuit.Hearts, 1);
+        }
+    }
+
+    void AddJokerToDeck(Card.CardSuit suit, int spriteIdx)
+    {
+        GameObject newCard = Instantiate(cardPrefab, deckArea);
+        newCard.SetActive(false);
+        Card cardScript = newCard.GetComponent<Card>();
+        cardScript.suit = suit;
+        cardScript.value = Card.CardValue.Joker;
+        if (jokerSprites.Length > spriteIdx) cardScript.frontSprite = jokerSprites[spriteIdx];
+        deck.Add(newCard);
     }
 
     void ShuffleDeck()
@@ -295,9 +270,9 @@ public class GameManager : MonoBehaviour
         for (int i = 0; i < deck.Count; i++)
         {
             GameObject temp = deck[i];
-            int randomIndex = Random.Range(i, deck.Count);
-            deck[i] = deck[randomIndex];
-            deck[randomIndex] = temp;
+            int rand = Random.Range(i, deck.Count);
+            deck[i] = deck[rand];
+            deck[rand] = temp;
         }
     }
 
@@ -305,66 +280,74 @@ public class GameManager : MonoBehaviour
     {
         if (deck.Count > 0)
         {
-            GameObject bottomCard = deck[deck.Count - 1];
-            Card trumpCardScript = bottomCard.GetComponent<Card>();
-            trumpSuit = trumpCardScript.suit;
-            trumpCardUI.sprite = trumpCardScript.frontSprite;
+            Card ts = deck[deck.Count - 1].GetComponent<Card>();
+            trumpSuit = ts.suit;
+            trumpCardUI.sprite = ts.frontSprite;
         }
     }
 
-    void DealCards()
+    public bool AreAllCardsDefended()
     {
-        for (int i = 0; i < 6; i++)
-        {
-            GiveCardTo(playerHand, true);
-            GiveCardTo(enemyHand, false);
-        }
+        if (tableArea.childCount == 0) return false;
+        foreach (Transform t in tableArea) { if (t.childCount == 0) return false; }
+        return true;
     }
 
-    void GiveCardTo(Transform hand, bool faceUp)
+    public int GetMaxAttackCards()
     {
-        if (deck.Count > 0)
-        {
-            GameObject cardToDeal = deck[0];
-            deck.RemoveAt(0);
-            cardToDeal.transform.SetParent(hand, false);
-            cardToDeal.SetActive(true);
-            cardToDeal.GetComponent<Card>().FlipCard(faceUp);
-        }
+        int max = isFirstTurn ? 5 : 6;
+        int defCount = isPlayerAttacker ? enemyHand.childCount : playerHand.childCount;
+        int currentOnTable = tableArea.GetComponentsInChildren<Card>().Length;
+        return Mathf.Min(max, defCount + currentOnTable);
     }
 
+    public bool HasCardsToToss(Transform hand)
+    {
+        if (tableArea.childCount == 0 || tableArea.childCount >= GetMaxAttackCards()) return false;
+        var tableValues = tableArea.GetComponentsInChildren<Card>().Select(c => c.value);
+        return hand.Cast<Transform>().Any(t => tableValues.Contains(t.GetComponent<Card>().value));
+    }
 
-    bool CheckWinCondition()
+    public void StartBotTakeTimer() { StartCoroutine(BotTakeCoroutine()); }
+
+    IEnumerator BotTakeCoroutine()
+    {
+        isBotTaking = true;
+        yield return new WaitForSeconds(HasCardsToToss(playerHand) ? 5.0f : 1.0f);
+        if (isBotTaking) TakeCards();
+    }
+
+    public void PlayerTakesCards() { StartCoroutine(PlayerTakeCoroutine()); }
+
+    IEnumerator PlayerTakeCoroutine()
+    {
+        takeButton.SetActive(false);
+        EnemyAI bot = GetComponent<EnemyAI>();
+        if (bot != null && HasCardsToToss(enemyHand)) yield return StartCoroutine(bot.TossAllPossibleCardsCoroutine());
+        yield return new WaitForSeconds(1.0f);
+        TakeCards();
+    }
+
+    public bool CheckWinCondition()
     {
         if (deck.Count == 0)
         {
             if (playerHand.childCount == 0 && enemyHand.childCount == 0) { EndGame("Нічия!"); return true; }
-            if (playerHand.childCount == 0) { EndGame("Ти виграв!"); return true; }
-            if (enemyHand.childCount == 0) { EndGame("Ти програв!"); return true; }
+            if (playerHand.childCount == 0) { EndGame("Виграш!"); return true; }
+            if (enemyHand.childCount == 0) { EndGame("Програш!"); return true; }
         }
         return false;
     }
 
-    void EndGame(string message)
+    void EndGame(string msg)
     {
         isGameOver = true;
         if (gameOverScreen != null) gameOverScreen.SetActive(true);
-        if (gameOverText != null) gameOverText.text = message;
-
+        if (gameOverText != null) gameOverText.text = msg;
         bitoButton.SetActive(false);
         takeButton.SetActive(false);
     }
 
-
-    public void RestartGame()
-    {
-
-        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
-    }
-
-    public void LoadMainMenu()
-    {
-
-        SceneManager.LoadScene("MainMenu");
-    }
+    public void RestartGame() { SceneManager.LoadScene(SceneManager.GetActiveScene().name); }
+    public void LoadMainMenu() { SceneManager.LoadScene("MainMenu"); }
 }

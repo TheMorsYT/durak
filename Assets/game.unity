@@ -462,10 +462,19 @@ MonoBehaviour:
   bitoVisual: {fileID: 1994655683}
   bitoButton: {fileID: 1528347396}
   takeButton: {fileID: 1821835913}
+  trumpCardUI: {fileID: 1336555047}
+  mainDeckUI: {fileID: 910858444}
+  gameOverScreen: {fileID: 1260771460}
+  gameOverText: {fileID: 1893103589}
   isFirstTurn: 1
   isPlayerAttacker: 1
   isBotTaking: 0
+  isGameOver: 0
   clubsSprites:
+  - {fileID: 21300000, guid: ec79a341fe038ca49ba4edc22581e2d1, type: 3}
+  - {fileID: 21300000, guid: c5f325f64bb0ac640b9ce0d2107a28ab, type: 3}
+  - {fileID: 21300000, guid: 276a33f4ee239d945be3608ceba6ced2, type: 3}
+  - {fileID: 21300000, guid: 9a36b0078ae69554c928264069ab2702, type: 3}
   - {fileID: 21300000, guid: 583e3c2a595b15c4b92cd93f9522495e, type: 3}
   - {fileID: 21300000, guid: 684e78ac3b0c8b6419f8424110fb61bc, type: 3}
   - {fileID: 21300000, guid: db2896c45bb84bc4789aeeb95ce4eb6d, type: 3}
@@ -476,6 +485,10 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 9bfde4ea87a33c54d852f2fb59c1b217, type: 3}
   - {fileID: 21300000, guid: f298d0c4752887445bd967da46ed8a45, type: 3}
   diamondsSprites:
+  - {fileID: 21300000, guid: 749689aca2e85854bb3301fad1e2198f, type: 3}
+  - {fileID: 21300000, guid: f64e1b62bffd3544db34ac46c75ed2d5, type: 3}
+  - {fileID: 21300000, guid: 7ad53ed979caefe40b2352eb764ed813, type: 3}
+  - {fileID: 21300000, guid: dc9fe0d13b5db024cb016b73ddf7438e, type: 3}
   - {fileID: 21300000, guid: bfcee5b542b1a7a4f8221ce7fab24db6, type: 3}
   - {fileID: 21300000, guid: 8fa5fce38d1dc8b40afa0c380210b117, type: 3}
   - {fileID: 21300000, guid: 43e80e4efad14014cb56536f61146ff4, type: 3}
@@ -486,6 +499,10 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 9706c0d598a361b4a8633627db83ff7c, type: 3}
   - {fileID: 21300000, guid: 4c357c5f6c4c9e14395a8c930b25c6aa, type: 3}
   heartsSprites:
+  - {fileID: 21300000, guid: 1d294d7a4e0e9464982e586a708bbc13, type: 3}
+  - {fileID: 21300000, guid: dea3e6b38e2d7a546a3ec1db763b25ef, type: 3}
+  - {fileID: 21300000, guid: 98af375ac58c0fc46a4d5c8fc0b11eb9, type: 3}
+  - {fileID: 21300000, guid: d8e022b8e2420584cbb32db7726502aa, type: 3}
   - {fileID: 21300000, guid: a7d819a0e2dcb5a4b8b28e69db4324fa, type: 3}
   - {fileID: 21300000, guid: 6a1ad4655202b9444b8acc76a96df7e1, type: 3}
   - {fileID: 21300000, guid: 562802bfd826cb3439c8ce5b5d56a98c, type: 3}
@@ -496,6 +513,10 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 7ed2f6fe7476c06439eed20a1f9d92ce, type: 3}
   - {fileID: 21300000, guid: bd81af60c206599418665773368f09f4, type: 3}
   spadesSprites:
+  - {fileID: 21300000, guid: 5670b923bcc2d084bb12df8858eb3a0d, type: 3}
+  - {fileID: 21300000, guid: d1980a8d19746374fa3dbb5458f05d9d, type: 3}
+  - {fileID: 21300000, guid: 88262250000364c40820fab5b65e06bb, type: 3}
+  - {fileID: 21300000, guid: 3c854c946469b6a4385a78d62e6393ae, type: 3}
   - {fileID: 21300000, guid: d8c0d7c69ec780440b2ef056fdf7995d, type: 3}
   - {fileID: 21300000, guid: 2b3a21e6751dea149ae7000cefc9f34a, type: 3}
   - {fileID: 21300000, guid: 29249c0ca24f9c346819e4a6439308fb, type: 3}
@@ -505,11 +526,9 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 8756ca975c2212d4c853489e2e1f5d38, type: 3}
   - {fileID: 21300000, guid: 6f31667f7da970241947066aef882f73, type: 3}
   - {fileID: 21300000, guid: eef822bd1f61ba044950d3359389cbb3, type: 3}
-  trumpCardUI: {fileID: 1336555047}
-  mainDeckUI: {fileID: 910858444}
-  gameOverScreen: {fileID: 1260771460}
-  gameOverText: {fileID: 1893103589}
-  isGameOver: 0
+  jokerSprites:
+  - {fileID: 21300000, guid: 9dc99cb85a81c0a4299b90680a4c5918, type: 3}
+  - {fileID: 21300000, guid: ea454aedf6ee9164ab929c709ee27523, type: 3}
   trumpSuit: 0
 --- !u!4 &662614316
 Transform:

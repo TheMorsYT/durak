@@ -5,10 +5,7 @@ public class DropZone : MonoBehaviour, IDropHandler
 {
     private GameManager gm;
 
-    void Start()
-    {
-        gm = FindObjectOfType<GameManager>();
-    }
+    void Start() { gm = FindObjectOfType<GameManager>(); }
 
     public void OnDrop(PointerEventData eventData)
     {
@@ -20,49 +17,47 @@ public class DropZone : MonoBehaviour, IDropHandler
             if (gm.isPlayerAttacker)
             {
                 int maxCards = gm.GetMaxAttackCards();
+                bool canToss = false;
 
                 if (transform.childCount == 0)
                 {
-                    AcceptAttackCard(cardMove);
+                    canToss = true;
                 }
                 else if (transform.childCount < maxCards)
                 {
-                    bool canToss = false;
-                    Card[] cardsOnTable = GetComponentsInChildren<Card>();
+                    Card[] cardsOnTable = gm.tableArea.GetComponentsInChildren<Card>();
                     foreach (Card c in cardsOnTable)
                     {
                         if (c.value == cardData.value) { canToss = true; break; }
                     }
-
-                    if (canToss) AcceptAttackCard(cardMove);
-
                 }
 
+                if (canToss)
+                {
+                    AcceptAttackCard(cardMove);
+                    gm.CheckWinCondition(); // Миттєва перевірка перемоги
+                }
             }
             else
             {
-                bool hasDefended = false;
-
                 foreach (Transform tableCard in transform)
                 {
                     if (tableCard.childCount == 0)
                     {
+                        // ФІКС: Повернуто правильний пошук карти, яку треба побити
                         Card botCardData = tableCard.GetComponent<Card>();
 
-                        bool isSameSuitHigher = (cardData.suit == botCardData.suit) && (cardData.value > botCardData.value);
-                        bool isTrumpBeat = (botCardData.suit != gm.trumpSuit) && (cardData.suit == gm.trumpSuit);
-
-                        if (isSameSuitHigher || isTrumpBeat)
+                        if (botCardData != null && CanPlayerBeat(cardData, botCardData))
                         {
                             cardMove.defaultParent = tableCard;
                             cardMove.transform.SetParent(tableCard, false);
                             cardMove.transform.localPosition = new Vector3(30, -30, 0);
+                            cardMove.transform.SetAsLastSibling();
 
                             CanvasGroup cg = cardMove.GetComponent<CanvasGroup>();
                             if (cg != null) cg.blocksRaycasts = false;
 
-                            hasDefended = true;
-
+                            gm.CheckWinCondition(); // Миттєва перевірка
                             EnemyAI bot = gm.GetComponent<EnemyAI>();
                             if (bot != null) bot.TryToAttack();
 
@@ -74,16 +69,36 @@ public class DropZone : MonoBehaviour, IDropHandler
         }
     }
 
+    bool CanPlayerBeat(Card playerCard, Card botCard)
+    {
+        if (playerCard.value == Card.CardValue.Joker)
+        {
+            bool isTrumpRed = (gm.trumpSuit == Card.CardSuit.Hearts || gm.trumpSuit == Card.CardSuit.Diamonds);
+            bool pRed = (playerCard.suit == Card.CardSuit.Hearts || playerCard.suit == Card.CardSuit.Diamonds);
+            bool bRed = (botCard.suit == Card.CardSuit.Hearts || botCard.suit == Card.CardSuit.Diamonds);
+
+            if (pRed) return isTrumpRed || bRed;
+            return !isTrumpRed || !bRed;
+        }
+
+        if (botCard.value == Card.CardValue.Joker) return false;
+
+        if (playerCard.suit == gm.trumpSuit && botCard.suit != gm.trumpSuit) return true;
+
+        if (playerCard.suit == botCard.suit) return playerCard.value > botCard.value;
+
+        return false;
+    }
+
     void AcceptAttackCard(CardMovement cardMove)
     {
         cardMove.defaultParent = this.transform;
+        cardMove.transform.SetAsLastSibling();
+
         CanvasGroup cg = cardMove.GetComponent<CanvasGroup>();
         if (cg != null) cg.blocksRaycasts = false;
 
         EnemyAI bot = gm.GetComponent<EnemyAI>();
-        if (bot != null && !gm.isBotTaking)
-        {
-            bot.TryToDefend();
-        }
+        if (bot != null && !gm.isBotTaking) bot.TryToDefend();
     }
 }
