@@ -27,14 +27,19 @@ The main goal of this project is to implement standard card game logic and creat
 
 ## 📸 Screenshots
 
-Main Menu
-The main navigation hub where you can start the game or learn about the project.
+## 📸 Screenshots
 
-Gameplay
-Core game arena with the deck, trump card, and player/bot hands.
+### Main Menu
+![Main Menu](Images/menu.png)
+*The main navigation hub where you can start the game or learn about the project.*
 
-Unity Editor View
-Project structure and UI setup within the Unity Engine.
+### Gameplay
+![Gameplay](Images/gameplay.png)
+*Core game arena with the deck, trump card, and player/bot hands.*
+
+### Unity Editor View
+![Unity Editor View](Images/editor1.png)(Images/editor1.png)
+*Project structure and UI setup within the Unity Engine.*
 
 ## 👤 Author
 
