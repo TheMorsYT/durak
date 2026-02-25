@@ -21,11 +21,20 @@ The main goal of this project is to implement standard card game logic and creat
 
 ## 🚀 How to Install & Play
 
-Soon...
+1. **Download:** Go to the [Releases](https://github.com/TheMorsYT/durak/releases) page and download the latest `.zip` archive.
+2. **Unpack:** Extract the contents of the archive into any folder on your PC.
+3. **Run:** Open the folder and launch the game by double-clicking **`Durak.exe`**.
 
 ## 📸 Screenshots
 
-Soon...
+Main Menu
+The main navigation hub where you can start the game or learn about the project.
+
+Gameplay
+Core game arena with the deck, trump card, and player/bot hands.
+
+Unity Editor View
+Project structure and UI setup within the Unity Engine.
 
 ## 👤 Author
 
