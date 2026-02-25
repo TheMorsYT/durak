@@ -13,7 +13,7 @@ public class EnemyAI : MonoBehaviour
     {
         gm = FindObjectOfType<GameManager>();
         difficulty = PlayerPrefs.GetInt("BotDifficulty", 0);
-        Debug.Log("Бот ініціалізований. Поточна складність: " + difficulty);
+        Debug.Log($"--- БОТ ЗАПУЩЕНИЙ. Складність: {difficulty} ---");
     }
 
     public void UpdateMemory()
@@ -26,9 +26,11 @@ public class EnemyAI : MonoBehaviour
             if (!seenCards.Contains(cardID))
             {
                 seenCards.Add(cardID);
-                Debug.Log("[Висока Складність] Бот запам'ятав карту у відбої: " + cardID);
             }
         }
+
+        int trumpsGone = seenCards.Count(c => c.Contains(gm.trumpSuit.ToString()) || c.Contains("Joker"));
+        Debug.Log($"[Аналітика] Бот знає, що у відбій пішло козирів: {trumpsGone}");
     }
 
     public void TryToDefend() => StartCoroutine(DefendRoutine());
@@ -43,31 +45,42 @@ public class EnemyAI : MonoBehaviour
         Card attackCard = attackCardTransform.GetComponent<Card>();
         List<Card> hand = GetHand();
 
+        var validCards = hand.Where(c => CanBeat(attackCard, c)).ToList();
         Card bestDefense = null;
 
-        if (difficulty == 0)
+        if (validCards.Count > 0)
         {
-            bestDefense = hand.FirstOrDefault(c => CanBotBeat(attackCard, c));
-        }
-        else if (difficulty == 1)
-        {
-            var valid = hand.Where(c => CanBotBeat(attackCard, c)).ToList();
-            bestDefense = valid.OrderBy(c => c.suit == gm.trumpSuit).ThenBy(c => (int)c.value).FirstOrDefault();
-        }
-        else
-        {
-            var valid = hand.Where(c => CanBotBeat(attackCard, c)).OrderBy(c => c.suit == gm.trumpSuit).ThenBy(c => (int)c.value).ToList();
-
-            if (gm.deckArea.childCount < 5 && valid.Count > 0 && valid[0].suit == gm.trumpSuit && (int)valid[0].value > 10)
+            if (difficulty == 0)
             {
-                Debug.Log("[Висока Складність] Бот вирішив НЕ відбиватися і прийняти карти, щоб зберегти великий козир!");
-                bestDefense = null;
+                bestDefense = validCards.FirstOrDefault();
+                Debug.Log($"[Легкий] Відбиваюсь тим, що перше під руку попалося: {bestDefense.name}");
+            }
+            else if (difficulty == 1)
+            {
+                bestDefense = validCards.OrderBy(c => c.suit == gm.trumpSuit).ThenBy(c => (int)c.value).FirstOrDefault();
             }
             else
             {
-                bestDefense = valid.FirstOrDefault();
+                bestDefense = validCards.OrderBy(c => c.value == Card.CardValue.Joker)
+                                        .ThenBy(c => c.suit == gm.trumpSuit)
+                                        .ThenBy(c => (int)c.value)
+                                        .FirstOrDefault();
+
                 if (bestDefense != null)
-                    Debug.Log("[Висока Складність] Бот відбивається картою: " + bestDefense.name);
+                {
+                    bool isJoker = bestDefense.value == Card.CardValue.Joker;
+                    bool isHighTrump = bestDefense.suit == gm.trumpSuit && (int)bestDefense.value >= 11;
+
+                    if ((isJoker || isHighTrump) && gm.deckArea.childCount > 4)
+                    {
+                        Debug.Log($"[Високий] Ти хочеш витягнути з мене {bestDefense.name}? Не вийде, я краще заберу карти.");
+                        bestDefense = null;
+                    }
+                    else
+                    {
+                        Debug.Log($"[Високий] Ідеальна карта для захисту: {bestDefense.name}");
+                    }
+                }
             }
         }
 
@@ -98,15 +111,82 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
+    private List<Card> GetKnownPlayerCards()
+    {
+        return gm.playerHand.Cast<Transform>().Select(t => t.GetComponent<Card>()).ToList();
+    }
+
     private Transform SelectBestInitialAttack()
     {
         var hand = GetHand();
-        if (difficulty == 0) return hand[0].transform;
 
-        var nonTrumps = hand.Where(c => c.suit != gm.trumpSuit).OrderBy(c => (int)c.value).ToList();
-        if (nonTrumps.Count > 0) return nonTrumps[0].transform;
+        if (difficulty == 0) return hand[Random.Range(0, hand.Count)].transform;
 
-        return hand.OrderBy(c => (int)c.value).First().transform;
+        if (difficulty == 2 && gm.deckArea.childCount == 0)
+        {
+            var playerCards = GetKnownPlayerCards();
+            var mySortedCards = hand.OrderBy(c => c.suit == gm.trumpSuit).ThenBy(c => (int)c.value).ToList();
+
+            foreach (var myCard in mySortedCards)
+            {
+                bool playerCanBeat = playerCards.Any(pCard => CanBeat(myCard, pCard));
+                if (!playerCanBeat)
+                {
+                    Debug.Log($"[ЕНДШПІЛЬ] Я знаю, що тобі нічим бити {myCard.name}. Отримуй!");
+                    return myCard.transform;
+                }
+            }
+        }
+
+        var safeCards = hand.Where(c => c.value != Card.CardValue.Joker).ToList();
+        if (safeCards.Count == 0) safeCards = hand;
+
+        var nonTrumps = safeCards.Where(c => c.suit != gm.trumpSuit).ToList();
+
+        if (difficulty == 2 && nonTrumps.Count > 0)
+        {
+            // 1. Пошук парних карт
+            var paired = nonTrumps.GroupBy(c => c.value)
+                                  .Where(g => g.Count() > 1)
+                                  .OrderBy(g => (int)g.Key)
+                                  .FirstOrDefault();
+
+            var lowestCard = nonTrumps.OrderBy(c => (int)c.value).First();
+
+            if (paired != null)
+            {
+                int pairValue = (int)paired.Key;
+                int lowestValue = (int)lowestCard.value;
+
+                // ФІКС: Б'ємо парою тільки якщо це дрібна пара (менше Валета) 
+                // АБО якщо ця пара і так є нашими найменшими картами в руці
+                if (pairValue < 11 || pairValue <= lowestValue + 1)
+                {
+                    Debug.Log($"[Високий] Атакую ПАРНОЮ картою {paired.First().name}, щоб потім гарантовано підкинути другу!");
+                    return paired.First().transform;
+                }
+                else
+                {
+                    Debug.Log($"[Високий] Маю пару {paired.First().name}, але на початку гри це занадто жирно. Піду з найменшої: {lowestCard.name}");
+                }
+            }
+
+            // 2. Витягування козирів великими картами (Туз/Король)
+            var highCards = nonTrumps.Where(c => (int)c.value >= 13).OrderByDescending(c => (int)c.value).ToList();
+            foreach (var highCard in highCards)
+            {
+                int suitGone = seenCards.Count(c => c.Contains(highCard.suit.ToString()));
+                if (suitGone > 3)
+                {
+                    Debug.Log($"[Високий] Кидаю {highCard.name}. Знаю, що цієї масті мало, зараз ти витратиш козира!");
+                    return highCard.transform;
+                }
+            }
+        }
+
+        if (nonTrumps.Count > 0) return nonTrumps.OrderBy(c => (int)c.value).First().transform;
+
+        return safeCards.OrderBy(c => (int)c.value).First().transform;
     }
 
     private Transform GetBestTossCard()
@@ -117,29 +197,48 @@ public class EnemyAI : MonoBehaviour
 
         if (candidates.Count == 0) return null;
 
-        if (difficulty == 0) return candidates[0].transform;
+        if (difficulty == 0) return candidates.FirstOrDefault()?.transform;
 
         if (difficulty == 1)
         {
-            return candidates.Where(c => c.suit != gm.trumpSuit).OrderBy(c => (int)c.value).FirstOrDefault()?.transform;
+            return candidates.Where(c => c.suit != gm.trumpSuit && c.value != Card.CardValue.Joker).OrderBy(c => (int)c.value).FirstOrDefault()?.transform;
         }
 
-        var best = candidates.Where(c => c.suit != gm.trumpSuit).OrderBy(c => (int)c.value).FirstOrDefault();
-        if (best != null)
+        if (difficulty == 2 && gm.deckArea.childCount == 0)
         {
-            if (gm.playerHand.childCount < 3 && (int)best.value < 10)
+            var playerCards = GetKnownPlayerCards();
+            foreach (var cand in candidates)
             {
-                Debug.Log("[Висока Складність] Блеф! Бот навмисно не підкидає дрібну карту (" + best.name + "), бо у гравця залишилося мало карт.");
+                bool playerCanBeat = playerCards.Any(pCard => CanBeat(cand, pCard));
+                if (!playerCanBeat)
+                {
+                    Debug.Log($"[ЕНДШПІЛЬ] Підкидаю {cand.name}! Тобі кінець.");
+                    return cand.transform;
+                }
+            }
+        }
+
+        var best = candidates.Where(c => c.suit != gm.trumpSuit && c.value != Card.CardValue.Joker).OrderBy(c => (int)c.value).FirstOrDefault();
+
+        if (best == null)
+        {
+            best = candidates.Where(c => c.suit == gm.trumpSuit && c.value != Card.CardValue.Joker && (int)c.value < 11).OrderBy(c => (int)c.value).FirstOrDefault();
+        }
+
+        if (best != null && difficulty == 2)
+        {
+            if (gm.playerHand.childCount < 3 && (int)best.value < 10 && gm.deckArea.childCount == 0)
+            {
+                Debug.Log($"[Високий] БЛЕФ! Маю {best.name}, але не підкину, щоб ти не відбився легкою картою.");
                 return null;
             }
-            Debug.Log("[Висока Складність] Бот стратегічно підкидає карту: " + best.name);
             return best.transform;
         }
 
-        return null;
+        return best?.transform;
     }
 
-    private bool CanBotBeat(Card attack, Card defense)
+    private bool CanBeat(Card attack, Card defense)
     {
         if (defense.value == Card.CardValue.Joker)
         {
@@ -152,9 +251,7 @@ public class EnemyAI : MonoBehaviour
         }
 
         if (attack.value == Card.CardValue.Joker) return false;
-
         if (defense.suit == gm.trumpSuit && attack.suit != gm.trumpSuit) return true;
-
         if (attack.suit == defense.suit) return defense.value > attack.value;
         return false;
     }
@@ -170,6 +267,8 @@ public class EnemyAI : MonoBehaviour
 
         CanvasGroup cg = card.GetComponent<CanvasGroup>();
         if (cg != null) cg.blocksRaycasts = false;
+
+        gm.CheckWinCondition();
     }
 
     void TossCardToTable(Transform cardTrans)
@@ -180,6 +279,8 @@ public class EnemyAI : MonoBehaviour
 
         CanvasGroup cg = cardTrans.GetComponent<CanvasGroup>();
         if (cg != null) cg.blocksRaycasts = false;
+
+        gm.CheckWinCondition();
     }
 
     public IEnumerator TossAllPossibleCardsCoroutine()

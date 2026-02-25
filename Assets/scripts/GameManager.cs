@@ -232,6 +232,10 @@ public class GameManager : MonoBehaviour
             for (int v = startValue; v <= 14; v++)
             {
                 GameObject newCard = Instantiate(cardPrefab, deckArea);
+
+                // --- ФІКС: УНІКАЛЬНЕ ІМ'Я КАРТИ ---
+                newCard.name = ((Card.CardSuit)s).ToString() + "_" + ((Card.CardValue)v).ToString();
+
                 newCard.SetActive(false);
                 Card cardScript = newCard.GetComponent<Card>();
                 cardScript.suit = (Card.CardSuit)s;
@@ -257,6 +261,10 @@ public class GameManager : MonoBehaviour
     void AddJokerToDeck(Card.CardSuit suit, int spriteIdx)
     {
         GameObject newCard = Instantiate(cardPrefab, deckArea);
+
+        // --- ФІКС: ІМ'Я ДЖОКЕРА ---
+        newCard.name = "Joker_" + suit.ToString();
+
         newCard.SetActive(false);
         Card cardScript = newCard.GetComponent<Card>();
         cardScript.suit = suit;

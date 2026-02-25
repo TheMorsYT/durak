@@ -27,8 +27,6 @@ The main goal of this project is to implement standard card game logic and creat
 
 ## 📸 Screenshots
 
-## 📸 Screenshots
-
 ### Main Menu
 ![Main Menu](Images/menu.png)
 *The main navigation hub where you can start the game or learn about the project.*

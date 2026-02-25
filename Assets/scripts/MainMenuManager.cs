@@ -9,6 +9,9 @@ public class MainMenuManager : MonoBehaviour
     public GameObject modeSelectionPanel;
     public GameObject difficultySelectionPanel;
 
+    [Header("Панель виходу")]
+    public GameObject confirmExitPanel;
+
     private int selectedDeckSize;
 
     void Start()
@@ -22,6 +25,9 @@ public class MainMenuManager : MonoBehaviour
         aboutPanel.SetActive(false);
         modeSelectionPanel.SetActive(false);
         difficultySelectionPanel.SetActive(false);
+
+
+        if (confirmExitPanel != null) confirmExitPanel.SetActive(false);
     }
 
     public void OpenAboutWindow() { aboutPanel.SetActive(true); }
@@ -60,9 +66,21 @@ public class MainMenuManager : MonoBehaviour
         StartGame();
     }
 
-    public void ExitGame()
+    public void ShowConfirmExit()
     {
-        Debug.Log("Вихід...");
+        confirmExitPanel.SetActive(true);
+    }
+
+
+    public void HideConfirmExit()
+    {
+        confirmExitPanel.SetActive(false);
+    }
+
+
+    public void ConfirmQuit()
+    {
+        Debug.Log("Вихід на робочий стіл...");
         Application.Quit();
     }
 
