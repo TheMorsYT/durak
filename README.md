@@ -38,7 +38,8 @@ The main goal of this project is to implement standard card game logic and creat
 *Core game arena with the deck, trump card, and player/bot hands.*
 
 ### Unity Editor View
-![Unity Editor View](Images/editor1.png)(Images/editor2.png)
+![Unity Editor View](Images/editor1.png)
+![Unity Editor Viev](Images/editor2.png)
 *Project structure and UI setup within the Unity Engine.*
 
 ## 👤 Author
