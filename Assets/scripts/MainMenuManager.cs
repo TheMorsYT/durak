@@ -3,13 +3,13 @@ using UnityEngine.SceneManagement;
 
 public class MainMenuManager : MonoBehaviour
 {
-    [Header("UI Панелі")]
+    [Header("UI Panels")]
     public GameObject mainMenuPanel;
     public GameObject aboutPanel;
     public GameObject modeSelectionPanel;
     public GameObject difficultySelectionPanel;
 
-    [Header("Панель виходу")]
+    [Header("Exit Panel")]
     public GameObject confirmExitPanel;
 
     private int selectedDeckSize;
@@ -25,7 +25,6 @@ public class MainMenuManager : MonoBehaviour
         aboutPanel.SetActive(false);
         modeSelectionPanel.SetActive(false);
         difficultySelectionPanel.SetActive(false);
-
 
         if (confirmExitPanel != null) confirmExitPanel.SetActive(false);
     }
@@ -66,21 +65,11 @@ public class MainMenuManager : MonoBehaviour
         StartGame();
     }
 
-    public void ShowConfirmExit()
-    {
-        confirmExitPanel.SetActive(true);
-    }
-
-
-    public void HideConfirmExit()
-    {
-        confirmExitPanel.SetActive(false);
-    }
-
+    public void ShowConfirmExit() { confirmExitPanel.SetActive(true); }
+    public void HideConfirmExit() { confirmExitPanel.SetActive(false); }
 
     public void ConfirmQuit()
     {
-        Debug.Log("Вихід на робочий стіл...");
         Application.Quit();
     }
 

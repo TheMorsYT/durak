@@ -233,7 +233,7 @@ public class GameManager : MonoBehaviour
             {
                 GameObject newCard = Instantiate(cardPrefab, deckArea);
 
-                // --- ФІКС: УНІКАЛЬНЕ ІМ'Я КАРТИ ---
+
                 newCard.name = ((Card.CardSuit)s).ToString() + "_" + ((Card.CardValue)v).ToString();
 
                 newCard.SetActive(false);
@@ -262,7 +262,6 @@ public class GameManager : MonoBehaviour
     {
         GameObject newCard = Instantiate(cardPrefab, deckArea);
 
-        // --- ФІКС: ІМ'Я ДЖОКЕРА ---
         newCard.name = "Joker_" + suit.ToString();
 
         newCard.SetActive(false);

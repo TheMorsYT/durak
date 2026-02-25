@@ -35,7 +35,7 @@ public class DropZone : MonoBehaviour, IDropHandler
                 if (canToss)
                 {
                     AcceptAttackCard(cardMove);
-                    gm.CheckWinCondition(); // Миттєва перевірка перемоги
+                    gm.CheckWinCondition(); 
                 }
             }
             else
@@ -44,7 +44,6 @@ public class DropZone : MonoBehaviour, IDropHandler
                 {
                     if (tableCard.childCount == 0)
                     {
-                        // ФІКС: Повернуто правильний пошук карти, яку треба побити
                         Card botCardData = tableCard.GetComponent<Card>();
 
                         if (botCardData != null && CanPlayerBeat(cardData, botCardData))

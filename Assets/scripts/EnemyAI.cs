@@ -13,7 +13,6 @@ public class EnemyAI : MonoBehaviour
     {
         gm = FindObjectOfType<GameManager>();
         difficulty = PlayerPrefs.GetInt("BotDifficulty", 0);
-        Debug.Log($"--- БОТ ЗАПУЩЕНИЙ. Складність: {difficulty} ---");
     }
 
     public void UpdateMemory()
@@ -30,7 +29,6 @@ public class EnemyAI : MonoBehaviour
         }
 
         int trumpsGone = seenCards.Count(c => c.Contains(gm.trumpSuit.ToString()) || c.Contains("Joker"));
-        Debug.Log($"[Аналітика] Бот знає, що у відбій пішло козирів: {trumpsGone}");
     }
 
     public void TryToDefend() => StartCoroutine(DefendRoutine());
@@ -53,7 +51,6 @@ public class EnemyAI : MonoBehaviour
             if (difficulty == 0)
             {
                 bestDefense = validCards.FirstOrDefault();
-                Debug.Log($"[Легкий] Відбиваюсь тим, що перше під руку попалося: {bestDefense.name}");
             }
             else if (difficulty == 1)
             {
@@ -73,12 +70,7 @@ public class EnemyAI : MonoBehaviour
 
                     if ((isJoker || isHighTrump) && gm.deckArea.childCount > 4)
                     {
-                        Debug.Log($"[Високий] Ти хочеш витягнути з мене {bestDefense.name}? Не вийде, я краще заберу карти.");
                         bestDefense = null;
-                    }
-                    else
-                    {
-                        Debug.Log($"[Високий] Ідеальна карта для захисту: {bestDefense.name}");
                     }
                 }
             }
@@ -132,7 +124,6 @@ public class EnemyAI : MonoBehaviour
                 bool playerCanBeat = playerCards.Any(pCard => CanBeat(myCard, pCard));
                 if (!playerCanBeat)
                 {
-                    Debug.Log($"[ЕНДШПІЛЬ] Я знаю, що тобі нічим бити {myCard.name}. Отримуй!");
                     return myCard.transform;
                 }
             }
@@ -145,7 +136,6 @@ public class EnemyAI : MonoBehaviour
 
         if (difficulty == 2 && nonTrumps.Count > 0)
         {
-            // 1. Пошук парних карт
             var paired = nonTrumps.GroupBy(c => c.value)
                                   .Where(g => g.Count() > 1)
                                   .OrderBy(g => (int)g.Key)
@@ -158,27 +148,18 @@ public class EnemyAI : MonoBehaviour
                 int pairValue = (int)paired.Key;
                 int lowestValue = (int)lowestCard.value;
 
-                // ФІКС: Б'ємо парою тільки якщо це дрібна пара (менше Валета) 
-                // АБО якщо ця пара і так є нашими найменшими картами в руці
                 if (pairValue < 11 || pairValue <= lowestValue + 1)
                 {
-                    Debug.Log($"[Високий] Атакую ПАРНОЮ картою {paired.First().name}, щоб потім гарантовано підкинути другу!");
                     return paired.First().transform;
-                }
-                else
-                {
-                    Debug.Log($"[Високий] Маю пару {paired.First().name}, але на початку гри це занадто жирно. Піду з найменшої: {lowestCard.name}");
                 }
             }
 
-            // 2. Витягування козирів великими картами (Туз/Король)
             var highCards = nonTrumps.Where(c => (int)c.value >= 13).OrderByDescending(c => (int)c.value).ToList();
             foreach (var highCard in highCards)
             {
                 int suitGone = seenCards.Count(c => c.Contains(highCard.suit.ToString()));
                 if (suitGone > 3)
                 {
-                    Debug.Log($"[Високий] Кидаю {highCard.name}. Знаю, що цієї масті мало, зараз ти витратиш козира!");
                     return highCard.transform;
                 }
             }
@@ -212,7 +193,6 @@ public class EnemyAI : MonoBehaviour
                 bool playerCanBeat = playerCards.Any(pCard => CanBeat(cand, pCard));
                 if (!playerCanBeat)
                 {
-                    Debug.Log($"[ЕНДШПІЛЬ] Підкидаю {cand.name}! Тобі кінець.");
                     return cand.transform;
                 }
             }
@@ -229,7 +209,6 @@ public class EnemyAI : MonoBehaviour
         {
             if (gm.playerHand.childCount < 3 && (int)best.value < 10 && gm.deckArea.childCount == 0)
             {
-                Debug.Log($"[Високий] БЛЕФ! Маю {best.name}, але не підкину, щоб ти не відбився легкою картою.");
                 return null;
             }
             return best.transform;

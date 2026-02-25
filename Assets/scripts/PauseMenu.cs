@@ -12,7 +12,6 @@ public class PauseMenu : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.Escape))
         {
-            // Якщо відкрито вікно підтвердження, Escape повертає до основного меню паузи
             if (confirmMenuUI.activeSelf)
             {
                 HideConfirmMenu();
@@ -31,7 +30,7 @@ public class PauseMenu : MonoBehaviour
     public void Pause()
     {
         pauseMenuUI.SetActive(true);
-        Time.timeScale = 0f; // Зупиняє час (і бота)
+        Time.timeScale = 0f;
         isPaused = true;
     }
 
@@ -39,7 +38,7 @@ public class PauseMenu : MonoBehaviour
     {
         pauseMenuUI.SetActive(false);
         confirmMenuUI.SetActive(false);
-        Time.timeScale = 1f; // Відновлює час
+        Time.timeScale = 1f;
         isPaused = false;
     }
 
@@ -57,7 +56,7 @@ public class PauseMenu : MonoBehaviour
 
     public void GoToMainMenu()
     {
-        Time.timeScale = 1f; // Обов'язково відновлюємо час перед завантаженням сцени
+        Time.timeScale = 1f;
         SceneManager.LoadScene("MainMenu");
     }
 }
