@@ -813,7 +813,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_text: "\u0414\u0443\u0440\u0430\u043A\nMade by: \u041F\u043E\u043B\u0438\u0432'\u044F\u043D\u0438\u0439
-    \u0422\u0438\u043C\u043E\u0444\u0456\u0439\nVersion: 0.1 Alpha\nUsing Unity and
+    \u0422\u0438\u043C\u043E\u0444\u0456\u0439\nVersion: 2.0 Alpha\nUsing Unity and
     C#\nhttps://github.com/TheMorsYT/durak\n"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: a3da9a9b8f9007e4a933ac04c4ede738, type: 2}
