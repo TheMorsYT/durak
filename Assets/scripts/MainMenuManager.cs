@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using UnityEngine.SceneManagement;
+using System.Collections;
 
 public class MainMenuManager : MonoBehaviour
 {
@@ -8,6 +9,8 @@ public class MainMenuManager : MonoBehaviour
     public GameObject aboutPanel;
     public GameObject modeSelectionPanel;
     public GameObject difficultySelectionPanel;
+
+    public GameObject settingsPanel;
 
     [Header("Exit Panel")]
     public GameObject confirmExitPanel;
@@ -26,32 +29,59 @@ public class MainMenuManager : MonoBehaviour
         modeSelectionPanel.SetActive(false);
         difficultySelectionPanel.SetActive(false);
 
+        if (settingsPanel != null) settingsPanel.SetActive(false);
+
         if (confirmExitPanel != null) confirmExitPanel.SetActive(false);
     }
 
-    public void OpenAboutWindow() { aboutPanel.SetActive(true); }
-    public void CloseAboutWindow() { aboutPanel.SetActive(false); }
+    public void OpenSettingsWindow()
+    {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        settingsPanel.SetActive(true);
+    }
+
+    public void CloseSettingsWindow()
+    {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        settingsPanel.SetActive(false);
+    }
+
+    public void OpenAboutWindow()
+    {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        aboutPanel.SetActive(true);
+    }
+
+    public void CloseAboutWindow()
+    {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        aboutPanel.SetActive(false);
+    }
 
     public void OnPlayButtonClicked()
     {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
         mainMenuPanel.SetActive(false);
         modeSelectionPanel.SetActive(true);
     }
 
     public void OnBackToMainMenuFromMode()
     {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
         modeSelectionPanel.SetActive(false);
         mainMenuPanel.SetActive(true);
     }
 
     public void OnBackToModeFromDifficulty()
     {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
         difficultySelectionPanel.SetActive(false);
         modeSelectionPanel.SetActive(true);
     }
 
     public void SelectMode(int deckSize)
     {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
         selectedDeckSize = deckSize;
         modeSelectionPanel.SetActive(false);
         difficultySelectionPanel.SetActive(true);
@@ -59,22 +89,42 @@ public class MainMenuManager : MonoBehaviour
 
     public void SelectDifficulty(int difficultyLevel)
     {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
         PlayerPrefs.SetInt("DeckSize", selectedDeckSize);
         PlayerPrefs.SetInt("BotDifficulty", difficultyLevel);
         PlayerPrefs.Save();
         StartGame();
     }
 
-    public void ShowConfirmExit() { confirmExitPanel.SetActive(true); }
-    public void HideConfirmExit() { confirmExitPanel.SetActive(false); }
+    public void ShowConfirmExit()
+    {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        confirmExitPanel.SetActive(true);
+    }
+
+    public void HideConfirmExit()
+    {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        confirmExitPanel.SetActive(false);
+    }
 
     public void ConfirmQuit()
     {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
         Application.Quit();
     }
 
     private void StartGame()
     {
+        StartCoroutine(LoadGameRoutine());
+    }
+
+    private IEnumerator LoadGameRoutine()
+    {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayTransition();
+
+        yield return new WaitForSeconds(0.4f);
+
         SceneManager.LoadScene("game");
     }
 }

@@ -1,18 +1,22 @@
 # 🃏 Durak Card Game
 
-
-
 ## 📄 About
 
 This project is a digital adaptation of the popular card game **"Durak"** (Fool).
 
-The main goal of this project is to implement standard card game logic and create a functional user interface using the **Unity Engine**.
+The main goal of this project is to implement standard card game logic, create a highly functional user interface, and develop a competitive artificial intelligence using the **Unity Engine**.
+
+## ✨ Current Features
+
+* **Classic Rules:** Full implementation of the standard "Throw-in" (Podkidnoy) Durak rules.
+* **Advanced AI Opponent:** Play against a computer opponent with 3 difficulty levels (Easy, Medium, Hard). The Hard bot features dynamic memory, endgame awareness, and fair-play mechanics.
+* **Settings Management:** In-game volume control and seamless UI localization (English & Ukrainian).
+* **Card Deck:** Standard 36-card deck logic with a Joker included.
 
 ## 🎮 Planned Features
 
-* **Classic Rules:** Implementation of the standard "Transferable" (Podkidnoy) Durak rules.
-* **Single Player Mode:** Play against a computer opponent (AI).
-* **Card Deck:** Logic for a standard 36-card deck.
+* **Transferable Mode:** Implementation of "Transferable" (Perevodnoy) Durak rules.
+* **24-Card Deck:** An option to play a faster game using a 24-card deck.
 
 ## 🛠️ Technologies Used
 
@@ -29,7 +33,7 @@ The main goal of this project is to implement standard card game logic and creat
 
 ### Main Menu
 ![Main Menu](Images/menu.png)
-*The main navigation hub where you can start the game or learn about the project.*
+*The main navigation hub where you can start the game or adjust settings.*
 
 ### Gameplay
 ![Gameplay](Images/gameplay.png)
@@ -37,12 +41,12 @@ The main goal of this project is to implement standard card game logic and creat
 
 ### Unity Editor View
 ![Unity Editor View](Images/editor1.png)
-![Unity Editor Viev](Images/editor2.png)
+![Unity Editor View](Images/editor2.png)
 *Project structure and UI setup within the Unity Engine.*
 
 ## 👤 Author
 
-**Tymofii Polyvianyi 25 група**
+**Tymofii Polyvianyi (Group 25)**
 
 ---
 *Created for educational purposes.*

@@ -17,6 +17,7 @@ public class CardMovement : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
 
     public void OnBeginDrag(PointerEventData eventData)
     {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick(); 
         defaultParent = transform.parent;
         transform.SetParent(transform.root);
         transform.SetAsLastSibling();

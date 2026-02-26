@@ -8,11 +8,13 @@ public class EnemyAI : MonoBehaviour
     private GameManager gm;
     private int difficulty;
     private List<string> seenCards = new List<string>();
+    private List<Card.CardSuit> knownPlayerVoids = new List<Card.CardSuit>();
 
     void Start()
     {
         gm = FindObjectOfType<GameManager>();
         difficulty = PlayerPrefs.GetInt("BotDifficulty", 0);
+        knownPlayerVoids.Clear();
     }
 
     public void UpdateMemory()
@@ -27,8 +29,6 @@ public class EnemyAI : MonoBehaviour
                 seenCards.Add(cardID);
             }
         }
-
-        int trumpsGone = seenCards.Count(c => c.Contains(gm.trumpSuit.ToString()) || c.Contains("Joker"));
     }
 
     public void TryToDefend() => StartCoroutine(DefendRoutine());
@@ -37,6 +37,7 @@ public class EnemyAI : MonoBehaviour
     IEnumerator DefendRoutine()
     {
         yield return new WaitForSeconds(Random.Range(0.8f, 1.5f));
+
         if (gm.tableArea.childCount == 0) yield break;
 
         Transform attackCardTransform = gm.tableArea.GetChild(gm.tableArea.childCount - 1);
@@ -58,8 +59,15 @@ public class EnemyAI : MonoBehaviour
             }
             else
             {
+                var allPairs = hand.Where(c => c.suit != gm.trumpSuit && c.value != Card.CardValue.Joker)
+                                   .GroupBy(c => c.value)
+                                   .Where(g => g.Count() > 1)
+                                   .SelectMany(g => g)
+                                   .ToList();
+
                 bestDefense = validCards.OrderBy(c => c.value == Card.CardValue.Joker)
                                         .ThenBy(c => c.suit == gm.trumpSuit)
+                                        .ThenBy(c => allPairs.Contains(c))
                                         .ThenBy(c => (int)c.value)
                                         .FirstOrDefault();
 
@@ -67,8 +75,9 @@ public class EnemyAI : MonoBehaviour
                 {
                     bool isJoker = bestDefense.value == Card.CardValue.Joker;
                     bool isHighTrump = bestDefense.suit == gm.trumpSuit && (int)bestDefense.value >= 11;
+                    bool isAttackCheap = attackCard.suit != gm.trumpSuit && (int)attackCard.value < 11;
 
-                    if ((isJoker || isHighTrump) && gm.deckArea.childCount > 4)
+                    if ((isJoker || isHighTrump) && isAttackCheap && gm.deckArea.childCount > 6)
                     {
                         bestDefense = null;
                     }
@@ -76,18 +85,56 @@ public class EnemyAI : MonoBehaviour
             }
         }
 
-        if (bestDefense != null) ExecuteMove(bestDefense.transform, attackCardTransform, true);
-        else gm.StartBotTakeTimer();
+        if (bestDefense != null)
+        {
+            ExecuteMove(bestDefense.transform, attackCardTransform, true);
+        }
+        else
+        {
+            gm.StartBotTakeTimer();
+        }
     }
 
     IEnumerator AttackRoutine()
     {
         yield return new WaitForSeconds(Random.Range(1.0f, 2.0f));
 
+        if (difficulty == 2 && gm.tableArea.childCount > 0)
+        {
+            foreach (Transform attackT in gm.tableArea)
+            {
+                if (attackT.childCount > 0)
+                {
+                    Card atk = attackT.GetComponent<Card>();
+                    Card def = attackT.GetChild(0).GetComponent<Card>();
+                    if (atk != null && def != null)
+                    {
+                        if (atk.suit != gm.trumpSuit && def.suit == gm.trumpSuit)
+                        {
+                            if (!knownPlayerVoids.Contains(atk.suit))
+                            {
+                                knownPlayerVoids.Add(atk.suit);
+                            }
+                        }
+                        else if (def.suit == atk.suit && def.value != Card.CardValue.Joker)
+                        {
+                            if (knownPlayerVoids.Contains(atk.suit))
+                            {
+                                knownPlayerVoids.Remove(atk.suit);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         if (gm.tableArea.childCount == 0)
         {
             Transform attack = SelectBestInitialAttack();
-            if (attack != null) TossCardToTable(attack);
+            if (attack != null)
+            {
+                TossCardToTable(attack);
+            }
         }
         else
         {
@@ -98,8 +145,14 @@ public class EnemyAI : MonoBehaviour
             }
 
             Transform toss = GetBestTossCard();
-            if (toss != null) TossCardToTable(toss);
-            else gm.SendToBito();
+            if (toss != null)
+            {
+                TossCardToTable(toss);
+            }
+            else
+            {
+                gm.SendToBito();
+            }
         }
     }
 
@@ -112,60 +165,65 @@ public class EnemyAI : MonoBehaviour
     {
         var hand = GetHand();
 
-        if (difficulty == 0) return hand[Random.Range(0, hand.Count)].transform;
-
-        if (difficulty == 2 && gm.deckArea.childCount == 0)
+        if (difficulty == 0)
         {
-            var playerCards = GetKnownPlayerCards();
-            var mySortedCards = hand.OrderBy(c => c.suit == gm.trumpSuit).ThenBy(c => (int)c.value).ToList();
-
-            foreach (var myCard in mySortedCards)
-            {
-                bool playerCanBeat = playerCards.Any(pCard => CanBeat(myCard, pCard));
-                if (!playerCanBeat)
-                {
-                    return myCard.transform;
-                }
-            }
+            return hand[Random.Range(0, hand.Count)].transform;
         }
 
         var safeCards = hand.Where(c => c.value != Card.CardValue.Joker).ToList();
         if (safeCards.Count == 0) safeCards = hand;
-
         var nonTrumps = safeCards.Where(c => c.suit != gm.trumpSuit).ToList();
 
-        if (difficulty == 2 && nonTrumps.Count > 0)
+        if (difficulty == 2)
         {
-            var paired = nonTrumps.GroupBy(c => c.value)
-                                  .Where(g => g.Count() > 1)
-                                  .OrderBy(g => (int)g.Key)
-                                  .FirstOrDefault();
+            bool isEndGame = gm.deckArea.childCount == 0;
 
-            var lowestCard = nonTrumps.OrderBy(c => (int)c.value).First();
-
-            if (paired != null)
+            var grouped = nonTrumps.GroupBy(c => c.value)
+                                   .Where(g => g.Count() > 1)
+                                   .OrderByDescending(g => g.Count())
+                                   .ThenBy(g => (int)g.Key)
+                                   .FirstOrDefault();
+            if (grouped != null)
             {
-                int pairValue = (int)paired.Key;
-                int lowestValue = (int)lowestCard.value;
+                return grouped.First().transform;
+            }
 
-                if (pairValue < 11 || pairValue <= lowestValue + 1)
+            if (isEndGame)
+            {
+                var playerCards = GetKnownPlayerCards();
+                var unblockableCards = hand.Where(myCard => !playerCards.Any(pCard => CanBeat(myCard, pCard))).ToList();
+
+                if (unblockableCards.Count > 0)
                 {
-                    return paired.First().transform;
+                    var nonTrumpUnblockable = unblockableCards.Where(c => c.suit != gm.trumpSuit && c.value != Card.CardValue.Joker).OrderBy(c => (int)c.value).FirstOrDefault();
+                    if (nonTrumpUnblockable != null) return nonTrumpUnblockable.transform;
+
+                    return unblockableCards.OrderBy(c => (int)c.value).First().transform;
                 }
             }
 
-            var highCards = nonTrumps.Where(c => (int)c.value >= 13).OrderByDescending(c => (int)c.value).ToList();
-            foreach (var highCard in highCards)
+            var exploitVoids = nonTrumps.Where(c => knownPlayerVoids.Contains(c.suit)).OrderByDescending(c => (int)c.value).ToList();
+            if (exploitVoids.Count > 0)
             {
-                int suitGone = seenCards.Count(c => c.Contains(highCard.suit.ToString()));
-                if (suitGone > 3)
-                {
-                    return highCard.transform;
-                }
+                return exploitVoids.First().transform;
+            }
+
+            if (nonTrumps.Count > 0)
+            {
+                return nonTrumps.OrderBy(c => (int)c.value).First().transform;
             }
         }
 
-        if (nonTrumps.Count > 0) return nonTrumps.OrderBy(c => (int)c.value).First().transform;
+        var mediumPaired = nonTrumps.GroupBy(c => c.value).Where(g => g.Count() > 1).OrderBy(g => (int)g.Key).FirstOrDefault();
+        if (mediumPaired != null)
+        {
+            return mediumPaired.First().transform;
+        }
+
+        if (nonTrumps.Count > 0)
+        {
+            return nonTrumps.OrderBy(c => (int)c.value).First().transform;
+        }
 
         return safeCards.OrderBy(c => (int)c.value).First().transform;
     }
@@ -178,43 +236,42 @@ public class EnemyAI : MonoBehaviour
 
         if (candidates.Count == 0) return null;
 
-        if (difficulty == 0) return candidates.FirstOrDefault()?.transform;
+        if (difficulty == 0)
+        {
+            return candidates.FirstOrDefault()?.transform;
+        }
 
         if (difficulty == 1)
         {
             return candidates.Where(c => c.suit != gm.trumpSuit && c.value != Card.CardValue.Joker).OrderBy(c => (int)c.value).FirstOrDefault()?.transform;
         }
 
-        if (difficulty == 2 && gm.deckArea.childCount == 0)
+        if (difficulty == 2)
         {
-            var playerCards = GetKnownPlayerCards();
-            foreach (var cand in candidates)
+            bool isEndGame = gm.deckArea.childCount == 0;
+            var safeTossCandidates = isEndGame ? candidates : candidates.Where(c => c.suit != gm.trumpSuit && c.value != Card.CardValue.Joker).ToList();
+
+            if (safeTossCandidates.Count == 0) return null;
+
+            if (isEndGame)
             {
-                bool playerCanBeat = playerCards.Any(pCard => CanBeat(cand, pCard));
-                if (!playerCanBeat)
-                {
-                    return cand.transform;
-                }
+                var playerCards = GetKnownPlayerCards();
+                var unblockableToss = safeTossCandidates.Where(cand => !playerCards.Any(p => CanBeat(cand, p))).OrderBy(c => (int)c.value).FirstOrDefault();
+                if (unblockableToss != null) return unblockableToss.transform;
+            }
+
+            var best = safeTossCandidates.OrderByDescending(c => hand.Count(h => h.value == c.value && h.suit != gm.trumpSuit && h.value != Card.CardValue.Joker))
+                                         .ThenBy(c => (int)c.value)
+                                         .FirstOrDefault();
+
+            if (best != null)
+            {
+                if (!isEndGame && (int)best.value >= 11 && hand.Count(h => h.value == best.value) == 1) return null;
+                return best.transform;
             }
         }
 
-        var best = candidates.Where(c => c.suit != gm.trumpSuit && c.value != Card.CardValue.Joker).OrderBy(c => (int)c.value).FirstOrDefault();
-
-        if (best == null)
-        {
-            best = candidates.Where(c => c.suit == gm.trumpSuit && c.value != Card.CardValue.Joker && (int)c.value < 11).OrderBy(c => (int)c.value).FirstOrDefault();
-        }
-
-        if (best != null && difficulty == 2)
-        {
-            if (gm.playerHand.childCount < 3 && (int)best.value < 10 && gm.deckArea.childCount == 0)
-            {
-                return null;
-            }
-            return best.transform;
-        }
-
-        return best?.transform;
+        return null;
     }
 
     private bool CanBeat(Card attack, Card defense)
@@ -248,6 +305,7 @@ public class EnemyAI : MonoBehaviour
         if (cg != null) cg.blocksRaycasts = false;
 
         gm.CheckWinCondition();
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayCardToTable();
     }
 
     void TossCardToTable(Transform cardTrans)
@@ -260,6 +318,7 @@ public class EnemyAI : MonoBehaviour
         if (cg != null) cg.blocksRaycasts = false;
 
         gm.CheckWinCondition();
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayCardToTable();
     }
 
     public IEnumerator TossAllPossibleCardsCoroutine()

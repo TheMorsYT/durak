@@ -35,7 +35,7 @@ public class DropZone : MonoBehaviour, IDropHandler
                 if (canToss)
                 {
                     AcceptAttackCard(cardMove);
-                    gm.CheckWinCondition(); 
+                    gm.CheckWinCondition();
                 }
             }
             else
@@ -48,6 +48,8 @@ public class DropZone : MonoBehaviour, IDropHandler
 
                         if (botCardData != null && CanPlayerBeat(cardData, botCardData))
                         {
+                            if (SoundManager.Instance != null) SoundManager.Instance.PlayCardToTable();
+
                             cardMove.defaultParent = tableCard;
                             cardMove.transform.SetParent(tableCard, false);
                             cardMove.transform.localPosition = new Vector3(30, -30, 0);
@@ -56,7 +58,7 @@ public class DropZone : MonoBehaviour, IDropHandler
                             CanvasGroup cg = cardMove.GetComponent<CanvasGroup>();
                             if (cg != null) cg.blocksRaycasts = false;
 
-                            gm.CheckWinCondition(); // Миттєва перевірка
+                            gm.CheckWinCondition(); 
                             EnemyAI bot = gm.GetComponent<EnemyAI>();
                             if (bot != null) bot.TryToAttack();
 
@@ -91,6 +93,7 @@ public class DropZone : MonoBehaviour, IDropHandler
 
     void AcceptAttackCard(CardMovement cardMove)
     {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayCardToTable();
         cardMove.defaultParent = this.transform;
         cardMove.transform.SetAsLastSibling();
 

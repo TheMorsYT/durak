@@ -26,6 +26,8 @@ public class GameManager : MonoBehaviour
     public bool isBotTaking = false;
     public bool isGameOver = false;
 
+    public bool isTurnChanging = false;
+
     public Sprite[] clubsSprites;
     public Sprite[] diamondsSprites;
     public Sprite[] heartsSprites;
@@ -51,7 +53,7 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
-        if (isGameOver) return;
+        if (isGameOver || isTurnChanging) return;
 
         int cardsOnTable = tableArea.GetComponentsInChildren<Card>().Length;
 
@@ -146,11 +148,13 @@ public class GameManager : MonoBehaviour
             card.transform.SetAsLastSibling();
             card.SetActive(true);
             card.GetComponent<Card>().FlipCard(faceUp);
+            if (SoundManager.Instance != null) SoundManager.Instance.PlayDeal();
         }
     }
 
     public void TakeCards()
     {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayTake();
         isBotTaking = false;
         Transform targetHand = isPlayerAttacker ? enemyHand : playerHand;
 
@@ -191,7 +195,22 @@ public class GameManager : MonoBehaviour
 
     public void SendToBito()
     {
-        if (isBotTaking) { StopAllCoroutines(); TakeCards(); return; }
+        if (isTurnChanging) return;
+
+        if (isBotTaking)
+        {
+            StopAllCoroutines();
+            isTurnChanging = false;
+            TakeCards();
+            return;
+        }
+
+        isTurnChanging = true;
+
+        bitoButton.SetActive(false);
+        takeButton.SetActive(false);
+
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayBito();
 
         Card[] allCardsOnTable = tableArea.GetComponentsInChildren<Card>();
         foreach (Card c in allCardsOnTable)
@@ -210,7 +229,12 @@ public class GameManager : MonoBehaviour
         if (bitoVisual != null) bitoVisual.SetActive(true);
 
         DrawCards();
-        if (CheckWinCondition()) return;
+
+        if (CheckWinCondition())
+        {
+            isTurnChanging = false;
+            return;
+        }
 
         isPlayerAttacker = !isPlayerAttacker;
         EnemyAI bot = GetComponent<EnemyAI>();
@@ -219,6 +243,8 @@ public class GameManager : MonoBehaviour
             if (!isPlayerAttacker) bot.TryToAttack();
             bot.UpdateMemory();
         }
+
+        isTurnChanging = false;
     }
 
     void CreateDeck()
@@ -232,7 +258,6 @@ public class GameManager : MonoBehaviour
             for (int v = startValue; v <= 14; v++)
             {
                 GameObject newCard = Instantiate(cardPrefab, deckArea);
-
 
                 newCard.name = ((Card.CardSuit)s).ToString() + "_" + ((Card.CardValue)v).ToString();
 
@@ -281,6 +306,7 @@ public class GameManager : MonoBehaviour
             deck[i] = deck[rand];
             deck[rand] = temp;
         }
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayShuffle();
     }
 
     void SetTrumpCard()
@@ -324,28 +350,42 @@ public class GameManager : MonoBehaviour
         if (isBotTaking) TakeCards();
     }
 
-    public void PlayerTakesCards() { StartCoroutine(PlayerTakeCoroutine()); }
+    public void PlayerTakesCards()
+    {
+        if (isTurnChanging) return;
+        isTurnChanging = true;
+
+        StartCoroutine(PlayerTakeCoroutine());
+    }
 
     IEnumerator PlayerTakeCoroutine()
     {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+
         takeButton.SetActive(false);
+        bitoButton.SetActive(false);
+
         EnemyAI bot = GetComponent<EnemyAI>();
         if (bot != null && HasCardsToToss(enemyHand)) yield return StartCoroutine(bot.TossAllPossibleCardsCoroutine());
         yield return new WaitForSeconds(1.0f);
+
         TakeCards();
+
+        isTurnChanging = false;
     }
 
     public bool CheckWinCondition()
     {
         if (deck.Count == 0)
         {
-            if (playerHand.childCount == 0 && enemyHand.childCount == 0) { EndGame("Нічия!"); return true; }
-            if (playerHand.childCount == 0) { EndGame("Виграш!"); return true; }
-            if (enemyHand.childCount == 0) { EndGame("Програш!"); return true; }
+            int lang = PlayerPrefs.GetInt("GameLanguage", 0); 
+
+            if (playerHand.childCount == 0 && enemyHand.childCount == 0) { EndGame(lang == 0 ? "Нічия!" : "Draw!"); return true; }
+            if (playerHand.childCount == 0) { EndGame(lang == 0 ? "Виграш!" : "You Win!"); return true; }
+            if (enemyHand.childCount == 0) { EndGame(lang == 0 ? "Програш!" : "You Lose!"); return true; }
         }
         return false;
     }
-
     void EndGame(string msg)
     {
         isGameOver = true;
@@ -355,6 +395,15 @@ public class GameManager : MonoBehaviour
         takeButton.SetActive(false);
     }
 
-    public void RestartGame() { SceneManager.LoadScene(SceneManager.GetActiveScene().name); }
-    public void LoadMainMenu() { SceneManager.LoadScene("MainMenu"); }
+    public void RestartGame()
+    {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    public void LoadMainMenu()
+    {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        SceneManager.LoadScene("MainMenu");
+    }
 }

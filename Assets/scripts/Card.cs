@@ -27,6 +27,11 @@ public class Card : MonoBehaviour
 
     public void FlipCard(bool showFace)
     {
+        if (isFaceUp != showFace)
+        {
+            if (SoundManager.Instance != null) SoundManager.Instance.PlayFlip();
+        }
+
         isFaceUp = showFace;
 
         if (isFaceUp)
