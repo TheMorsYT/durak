@@ -47,6 +47,9 @@ public class GameManager : MonoBehaviour
     {
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
+
+        int savedMode = PlayerPrefs.GetInt("GameMode", 1);
+        isTransferMode = (savedMode == 1);
     }
 
     void Start()
@@ -134,6 +137,13 @@ public class GameManager : MonoBehaviour
 
     public void TransferAttack(Card transferCard)
     {
+        if (!isTransferMode) return;
+
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+
+        transferCard.transform.SetParent(tableArea, false);
+        transferCard.transform.SetAsLastSibling();
+
         if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
 
         transferCard.transform.SetParent(tableArea, false);
