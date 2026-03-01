@@ -70,6 +70,11 @@ public class CardMovement : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
 
             transform.SetParent(originalHand);
             transform.SetSiblingIndex(newIndex);
+
+            if (PlayerPrefs.GetInt("SortMethod", 0) != 0 && GameManager.Instance != null)
+            {
+                GameManager.Instance.SortPlayerHand();
+            }
         }
         else
         {

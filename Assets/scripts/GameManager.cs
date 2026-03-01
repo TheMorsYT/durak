@@ -213,6 +213,8 @@ public class GameManager : MonoBehaviour
             Color c = trumpCardUI.color; c.a = 0.35f; trumpCardUI.color = c;
         }
 
+        SortPlayerHand();
+
         isDealing = false;
     }
 
@@ -472,6 +474,36 @@ public class GameManager : MonoBehaviour
         TakeCards();
 
         isTurnChanging = false;
+    }
+
+    public void SortPlayerHand()
+    {
+        int sortType = PlayerPrefs.GetInt("SortMethod", 0);
+
+        if (sortType == 0 || playerHand.childCount == 0) return;
+
+        List<Card> cardsInHand = new List<Card>();
+        foreach (Transform t in playerHand)
+        {
+            Card c = t.GetComponent<Card>();
+            if (c != null) cardsInHand.Add(c);
+        }
+
+        if (sortType == 1)
+        {
+            cardsInHand = cardsInHand.OrderBy(c => (int)c.value).ThenBy(c => c.suit).ToList();
+        }
+        else if (sortType == 2)
+        {
+            cardsInHand = cardsInHand.OrderBy(c => c.suit == trumpSuit ? 1 : 0)
+                                     .ThenBy(c => c.suit)
+                                     .ThenBy(c => (int)c.value).ToList();
+        }
+
+        for (int i = 0; i < cardsInHand.Count; i++)
+        {
+            cardsInHand[i].transform.SetSiblingIndex(i);
+        }
     }
 
     public bool CheckWinCondition()
