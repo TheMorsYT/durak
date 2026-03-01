@@ -48,7 +48,7 @@ public class SettingsUI : MonoBehaviour
             SoundManager.Instance.PlayClick();
         }
 
-        LocalizedText[] activeTexts = FindObjectsOfType<LocalizedText>();
+        LocalizedText[] activeTexts = Object.FindObjectsByType<LocalizedText>(FindObjectsSortMode.None);
         foreach (LocalizedText lt in activeTexts)
         {
             lt.UpdateText();

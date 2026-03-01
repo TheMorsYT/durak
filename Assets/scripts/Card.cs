@@ -20,6 +20,7 @@ public class Card : MonoBehaviour
     private Image cardImage;
     private bool isFaceUp = false;
 
+
     private void Awake()
     {
         cardImage = GetComponent<Image>();

@@ -8,19 +8,20 @@ The main goal of this project is to implement standard card game logic, create a
 
 ## ✨ Current Features
 
-* **Classic Rules:** Full implementation of the standard "Throw-in" (Podkidnoy) Durak rules.
-* **Advanced AI Opponent:** Play against a computer opponent with 3 difficulty levels (Easy, Medium, Hard). The Hard bot features dynamic memory, endgame awareness, and fair-play mechanics.
+* **Game Modes:** Full implementation of both "Throw-in" (Podkidnoy) and **"Transferable" (Perevodnoy)** rules.
+* **Deck Options:** Support for standard 36-card decks and fast-paced **24-card decks**.
+* **Advanced AI Opponent:** Play against a computer opponent with 3 difficulty levels. The AI now correctly handles transfers and manages trump cards wisely.
+* **Manual Card Organization:** Drag and drop cards within your hand to sort them manually during the game.
 * **Settings Management:** In-game volume control and seamless UI localization (English & Ukrainian).
-* **Card Deck:** Standard 36-card deck logic with a Joker included.
+* **Improved UI:** Pixel-perfect card hitboxes and responsive layout groups.
 
 ## 🎮 Planned Features
 
-* **Transferable Mode:** Implementation of "Transferable" (Perevodnoy) Durak rules.
-* **24-Card Deck:** An option to play a faster game using a 24-card deck.
+* **Automatic Sorting Settings:** Options to instantly sort the hand by **Rank** (from 6 to Ace) or by **Suit** (e.g., grouping all Hearts together).
 
 ## 🛠️ Technologies Used
 
-* **Engine:** Unity 2019.2.8f1
+* **Engine:** Unity 6 (6000.3.10f1) *(Note: Versions prior to v5.0-alpha used Unity 2019.2.8f1)*
 * **Language:** C#
 
 ## 🚀 How to Install & Play

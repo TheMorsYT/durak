@@ -1,14 +1,25 @@
 ﻿using UnityEngine;
 using UnityEngine.EventSystems;
+using System.Linq;
+using System.Collections.Generic;
 
 public class DropZone : MonoBehaviour, IDropHandler
 {
     private GameManager gm;
 
-    void Start() { gm = FindObjectOfType<GameManager>(); }
+    void Start()
+    {
+        gm = GameManager.Instance;
+        if (gm == null) gm = Object.FindFirstObjectByType<GameManager>();
+    }
 
     public void OnDrop(PointerEventData eventData)
     {
+        if (eventData.pointerEnter != null && eventData.pointerEnter.name == "TransferZone")
+        {
+            return;
+        }
+
         CardMovement cardMove = eventData.pointerDrag.GetComponent<CardMovement>();
         Card cardData = eventData.pointerDrag.GetComponent<Card>();
 
@@ -19,16 +30,21 @@ public class DropZone : MonoBehaviour, IDropHandler
                 int maxCards = gm.GetMaxAttackCards();
                 bool canToss = false;
 
-                if (transform.childCount == 0)
+                var cardsOnTableTransforms = gm.GetTableAttackCards();
+                int attackCardsCount = cardsOnTableTransforms.Count;
+
+                if (attackCardsCount == 0)
                 {
                     canToss = true;
                 }
-                else if (transform.childCount < maxCards)
+                else if (attackCardsCount < maxCards)
                 {
-                    Card[] cardsOnTable = gm.tableArea.GetComponentsInChildren<Card>();
-                    foreach (Card c in cardsOnTable)
+                    var allCardsOnTable = gm.tableArea.GetComponentsInChildren<Card>();
+                    var tableRanks = allCardsOnTable.Select(c => c.value).Distinct();
+
+                    if (tableRanks.Contains(cardData.value))
                     {
-                        if (c.value == cardData.value) { canToss = true; break; }
+                        canToss = true;
                     }
                 }
 
@@ -40,13 +56,15 @@ public class DropZone : MonoBehaviour, IDropHandler
             }
             else
             {
-                foreach (Transform tableCard in transform)
+                if (gm.isPlayerAttacker) return;
+
+                foreach (Transform tableCard in gm.GetTableAttackCards())
                 {
+                    Card botCardData = tableCard.GetComponent<Card>();
+
                     if (tableCard.childCount == 0)
                     {
-                        Card botCardData = tableCard.GetComponent<Card>();
-
-                        if (botCardData != null && CanPlayerBeat(cardData, botCardData))
+                        if (CanPlayerBeat(cardData, botCardData))
                         {
                             if (SoundManager.Instance != null) SoundManager.Instance.PlayCardToTable();
 
@@ -58,9 +76,10 @@ public class DropZone : MonoBehaviour, IDropHandler
                             CanvasGroup cg = cardMove.GetComponent<CanvasGroup>();
                             if (cg != null) cg.blocksRaycasts = false;
 
-                            gm.CheckWinCondition(); 
+                            gm.CheckWinCondition();
+
                             EnemyAI bot = gm.GetComponent<EnemyAI>();
-                            if (bot != null) bot.TryToAttack();
+                            if (bot != null && !gm.isBotTaking) bot.TryToAttack();
 
                             break;
                         }
@@ -77,17 +96,13 @@ public class DropZone : MonoBehaviour, IDropHandler
             bool isTrumpRed = (gm.trumpSuit == Card.CardSuit.Hearts || gm.trumpSuit == Card.CardSuit.Diamonds);
             bool pRed = (playerCard.suit == Card.CardSuit.Hearts || playerCard.suit == Card.CardSuit.Diamonds);
             bool bRed = (botCard.suit == Card.CardSuit.Hearts || botCard.suit == Card.CardSuit.Diamonds);
-
             if (pRed) return isTrumpRed || bRed;
             return !isTrumpRed || !bRed;
         }
 
         if (botCard.value == Card.CardValue.Joker) return false;
-
         if (playerCard.suit == gm.trumpSuit && botCard.suit != gm.trumpSuit) return true;
-
         if (playerCard.suit == botCard.suit) return playerCard.value > botCard.value;
-
         return false;
     }
 
@@ -95,6 +110,7 @@ public class DropZone : MonoBehaviour, IDropHandler
     {
         if (SoundManager.Instance != null) SoundManager.Instance.PlayCardToTable();
         cardMove.defaultParent = this.transform;
+        cardMove.transform.SetParent(this.transform, false);
         cardMove.transform.SetAsLastSibling();
 
         CanvasGroup cg = cardMove.GetComponent<CanvasGroup>();

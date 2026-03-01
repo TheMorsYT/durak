@@ -8,13 +8,14 @@ public class MainMenuManager : MonoBehaviour
     public GameObject mainMenuPanel;
     public GameObject aboutPanel;
     public GameObject modeSelectionPanel;
+    public GameObject cardSelectionPanel;
     public GameObject difficultySelectionPanel;
-
     public GameObject settingsPanel;
 
     [Header("Exit Panel")]
     public GameObject confirmExitPanel;
 
+    private int selectedGameMode;
     private int selectedDeckSize;
 
     void Start()
@@ -27,10 +28,12 @@ public class MainMenuManager : MonoBehaviour
         mainMenuPanel.SetActive(true);
         aboutPanel.SetActive(false);
         modeSelectionPanel.SetActive(false);
+
+        if (cardSelectionPanel != null) cardSelectionPanel.SetActive(false);
+
         difficultySelectionPanel.SetActive(false);
 
         if (settingsPanel != null) settingsPanel.SetActive(false);
-
         if (confirmExitPanel != null) confirmExitPanel.SetActive(false);
     }
 
@@ -72,27 +75,45 @@ public class MainMenuManager : MonoBehaviour
         mainMenuPanel.SetActive(true);
     }
 
-    public void OnBackToModeFromDifficulty()
+    public void SelectGameMode(int mode)
     {
         if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
-        difficultySelectionPanel.SetActive(false);
+        selectedGameMode = mode;
+        modeSelectionPanel.SetActive(false);
+        cardSelectionPanel.SetActive(true);
+    }
+
+    public void OnBackToModeFromCardSelection()
+    {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        cardSelectionPanel.SetActive(false);
         modeSelectionPanel.SetActive(true);
     }
 
-    public void SelectMode(int deckSize)
+    public void SelectDeckSize(int deckSize)
     {
         if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
         selectedDeckSize = deckSize;
-        modeSelectionPanel.SetActive(false);
+        cardSelectionPanel.SetActive(false);
         difficultySelectionPanel.SetActive(true);
+    }
+
+    public void OnBackToCardSelectionFromDifficulty()
+    {
+        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        difficultySelectionPanel.SetActive(false);
+        cardSelectionPanel.SetActive(true);
     }
 
     public void SelectDifficulty(int difficultyLevel)
     {
         if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+
+        PlayerPrefs.SetInt("GameMode", selectedGameMode);
         PlayerPrefs.SetInt("DeckSize", selectedDeckSize);
         PlayerPrefs.SetInt("BotDifficulty", difficultyLevel);
         PlayerPrefs.Save();
+
         StartGame();
     }
 
@@ -122,9 +143,7 @@ public class MainMenuManager : MonoBehaviour
     private IEnumerator LoadGameRoutine()
     {
         if (SoundManager.Instance != null) SoundManager.Instance.PlayTransition();
-
         yield return new WaitForSeconds(0.4f);
-
         SceneManager.LoadScene("game");
     }
 }
