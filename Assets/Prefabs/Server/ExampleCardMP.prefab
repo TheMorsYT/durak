@@ -12,13 +12,13 @@ GameObject:
   - component: {fileID: 1533316629146249078}
   - component: {fileID: 1533316629146249077}
   - component: {fileID: -5685387071654424764}
-  - component: {fileID: 1533316629146249079}
-  - component: {fileID: 204318189405058161}
   - component: {fileID: 6320327951457779911}
   - component: {fileID: 2068761785042985572}
   - component: {fileID: 2114791202575996738}
   - component: {fileID: 8746194355343907552}
   - component: {fileID: 7154331441493818035}
+  - component: {fileID: 3590378753585654806}
+  - component: {fileID: 6433301273693660160}
   m_Layer: 5
   m_Name: ExampleCardMP
   m_TagString: Untagged
@@ -96,7 +96,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2337431715
+  GlobalObjectIdHash: 1644935306
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -109,45 +109,6 @@ MonoBehaviour:
   AutoObjectParentSync: 1
   SyncOwnerTransformWhenParented: 1
   AllowOwnerToParent: 0
---- !u!114 &1533316629146249079
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1533316629146249083}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1042d7eff60688e4c891d2a7a41fe7a5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  ShowTopMostFoldoutHeaderGroup: 1
-  ownerId:
-    m_InternalValue: 9999
-  syncSuit:
-    m_InternalValue: -1
-  syncValue:
-    m_InternalValue: -1
-  suit: 0
-  value: 9
-  frontSprite: {fileID: -3058691578798605708, guid: c9f5351746f55b44fa567be50844b794,
-    type: 3}
-  backSprite: {fileID: -1615198837252988192, guid: 2d725c3a5a1f4834a89b500acc6d4e77,
-    type: 3}
---- !u!114 &204318189405058161
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1533316629146249083}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 66b1e68abe7d03f408798cc8920ae380, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  ShowTopMostFoldoutHeaderGroup: 1
-  defaultParent: {fileID: 0}
 --- !u!114 &6320327951457779911
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -235,3 +196,37 @@ MonoBehaviour:
   m_FlexibleWidth: -1
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
+--- !u!114 &3590378753585654806
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1533316629146249083}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2c4cecc991f2deb4f89ca700d33fb891, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Durak.SimpleMultiplayer.SimpleCardSelectable
+  cardId: -1
+  selectionFrame: {fileID: 0}
+  selectedColor: {r: 0.2, g: 1, b: 0.2, a: 0}
+  normalColor: {r: 1, g: 1, b: 1, a: 0}
+  enableLogs: 0
+--- !u!114 &6433301273693660160
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1533316629146249083}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db32b7fe15875d84ca934a8dd2f3799e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Card
+  suit: 0
+  value: 0
+  frontSprite: {fileID: 0}
+  backSprite: {fileID: -1615198837252988192, guid: 2d725c3a5a1f4834a89b500acc6d4e77,
+    type: 3}

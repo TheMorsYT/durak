@@ -1,89 +1,219 @@
-﻿using UnityEngine;
+using Durak.Architecture.Singleplayer.Core;
+using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 public class CardMovement : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
+    public static bool IsDraggingTransferCandidate { get; private set; }
+    public bool IsDraggingCard => isDragging;
+    public Transform DragStartParent => originalHand;
+
     [HideInInspector] public Transform defaultParent;
+
     private CanvasGroup canvasGroup;
-    private Card myCard;
+    private LayoutElement layoutElement;
+    private Canvas dragCanvas;
 
-    private int originalSiblingIndex;
     private Transform originalHand;
+    private int originalSiblingIndex;
+    private Transform dragLayerParent;
 
-    void Awake()
+    private bool pendingAction;
+    private bool localRejectRequested;
+    private bool isDragging;
+
+    private void Awake()
     {
-        canvasGroup = GetComponent<CanvasGroup>();
-        if (canvasGroup == null) canvasGroup = gameObject.AddComponent<CanvasGroup>();
-        myCard = GetComponent<Card>();
+        canvasGroup = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
+        layoutElement = GetComponent<LayoutElement>();
+        dragCanvas = GetComponent<Canvas>();
     }
 
     public void OnBeginDrag(PointerEventData eventData)
     {
-        if (GameManager.Instance != null && GameManager.Instance.isDealing)
+        MatchControllerSP controller = MatchControllerSP.Instance;
+        if (controller == null || !controller.IsInLocalPlayerHand(transform) || controller.IsCardOnTable(transform) || controller.IsDealInProgress || controller.IsGameOver)
         {
             eventData.pointerDrag = null;
             return;
         }
 
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        Card card = GetComponent<Card>();
+        IsDraggingTransferCandidate = card != null && controller.CanLocalPlayerTransfer(card);
 
         defaultParent = transform.parent;
         originalHand = defaultParent;
         originalSiblingIndex = transform.GetSiblingIndex();
+        pendingAction = false;
+        localRejectRequested = false;
+        isDragging = true;
 
-        transform.SetParent(transform.root);
-        transform.SetAsLastSibling();
-        canvasGroup.blocksRaycasts = false;
-
-        if (GameManager.Instance != null && GameManager.Instance.CanTransfer(myCard))
+        Canvas rootCanvas = originalHand != null
+            ? originalHand.GetComponentInParent<Canvas>()?.rootCanvas
+            : GetComponentInParent<Canvas>()?.rootCanvas;
+        dragLayerParent = rootCanvas != null ? rootCanvas.transform : transform.root;
+        if (dragLayerParent != null)
         {
-            if (GameManager.Instance.transferZone != null)
-            {
-                GameManager.Instance.transferZone.SetActive(true);
-            }
+            transform.SetParent(dragLayerParent, true);
         }
+
+        transform.SetAsLastSibling();
+
+        if (layoutElement != null)
+        {
+            layoutElement.ignoreLayout = true;
+        }
+
+        if (dragCanvas != null)
+        {
+            dragCanvas.overrideSorting = true;
+            dragCanvas.sortingOrder = 100;
+        }
+
+        canvasGroup.blocksRaycasts = false;
+        SoundManager.Instance?.PlayClick();
     }
 
     public void OnDrag(PointerEventData eventData)
     {
+        if (!isDragging)
+        {
+            return;
+        }
+
         transform.position = eventData.position;
     }
 
     public void OnEndDrag(PointerEventData eventData)
     {
+        isDragging = false;
+        IsDraggingTransferCandidate = false;
         canvasGroup.blocksRaycasts = true;
 
-        if (defaultParent == originalHand)
+        if (layoutElement != null)
         {
-            int newIndex = originalHand.childCount;
+            layoutElement.ignoreLayout = false;
+        }
 
+        if (dragCanvas != null)
+        {
+            dragCanvas.overrideSorting = false;
+        }
+
+        if (originalHand == null)
+        {
+            return;
+        }
+
+        if (localRejectRequested)
+        {
+            SnapBackToOriginalHand(originalSiblingIndex);
+            localRejectRequested = false;
+            pendingAction = false;
+            return;
+        }
+
+        if (pendingAction)
+        {
+            Transform targetParent = defaultParent != null ? defaultParent : originalHand;
+            transform.SetParent(targetParent, false);
+            ForceRebuild(originalHand);
+            ForceRebuild(targetParent);
+            return;
+        }
+
+        if (defaultParent != originalHand)
+        {
+            SnapBackToOriginalHand(originalSiblingIndex);
+            return;
+        }
+
+        int newIndex = originalHand.childCount;
+        if (eventData != null)
+        {
             for (int i = 0; i < originalHand.childCount; i++)
             {
-                Transform sibling = originalHand.GetChild(i);
-
-                if (eventData.position.x < sibling.position.x)
+                if (eventData.position.x < originalHand.GetChild(i).position.x)
                 {
                     newIndex = i;
                     break;
                 }
             }
-
-            transform.SetParent(originalHand);
-            transform.SetSiblingIndex(newIndex);
-
-            if (PlayerPrefs.GetInt("SortMethod", 0) != 0 && GameManager.Instance != null)
-            {
-                GameManager.Instance.SortPlayerHand();
-            }
-        }
-        else
-        {
-            transform.SetParent(defaultParent);
         }
 
-        if (GameManager.Instance != null && GameManager.Instance.transferZone != null)
+        transform.SetParent(originalHand, false);
+        transform.SetSiblingIndex(newIndex);
+        ForceRebuild(originalHand);
+
+        if (PlayerPrefs.GetInt("SortMethod", 0) != 0)
         {
-            GameManager.Instance.transferZone.SetActive(false);
+            MatchControllerSP.Instance?.SortPlayerHand();
+        }
+    }
+
+    public void MarkPendingAction()
+    {
+        pendingAction = true;
+        localRejectRequested = false;
+    }
+
+    public void RejectLocally()
+    {
+        localRejectRequested = true;
+        pendingAction = false;
+        if (!isDragging)
+        {
+            SnapBackToOriginalHand(originalSiblingIndex);
+        }
+    }
+
+    private void OnDisable()
+    {
+        if (isDragging)
+        {
+            IsDraggingTransferCandidate = false;
+        }
+    }
+
+    private void LateUpdate()
+    {
+        if (!pendingAction || originalHand == null)
+        {
+            return;
+        }
+
+        if (transform.parent != originalHand)
+        {
+            pendingAction = false;
+            localRejectRequested = false;
+        }
+    }
+
+    private void SnapBackToOriginalHand(int siblingIndex)
+    {
+        if (originalHand == null)
+        {
+            return;
+        }
+
+        transform.SetParent(originalHand, false);
+        int clamped = Mathf.Clamp(siblingIndex, 0, Mathf.Max(0, originalHand.childCount - 1));
+        transform.SetSiblingIndex(clamped);
+        ForceRebuild(originalHand);
+    }
+
+    private static void ForceRebuild(Transform parent)
+    {
+        if (parent == null)
+        {
+            return;
+        }
+
+        RectTransform rect = parent.GetComponent<RectTransform>();
+        if (rect != null)
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
         }
     }
 }

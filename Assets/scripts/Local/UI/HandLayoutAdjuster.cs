@@ -1,26 +1,57 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UI;
 
 [RequireComponent(typeof(HorizontalLayoutGroup))]
-public class HandLayoutAdjuster : MonoBehaviour
+public sealed class HandLayoutAdjuster : MonoBehaviour
 {
+    [Header("Налаштування")]
+    public float defaultSpacing = 5f;
+    public float cardWidth = 100f;
+
     private HorizontalLayoutGroup layoutGroup;
     private RectTransform rectTransform;
 
-    [Header("Налаштування")]
-    public float defaultSpacing = 5f;
-    public float cardWidth = 100f;  
-
-    void Start()
+    private void Awake()
     {
         layoutGroup = GetComponent<HorizontalLayoutGroup>();
         rectTransform = GetComponent<RectTransform>();
     }
 
-    void Update()
+    private void OnEnable()
     {
-        int cardCount = transform.childCount;
+        RecalculateSpacing();
+    }
 
+    private void OnTransformChildrenChanged()
+    {
+        RecalculateSpacing();
+    }
+
+    private void OnRectTransformDimensionsChange()
+    {
+        RecalculateSpacing();
+    }
+
+    private void OnValidate()
+    {
+        if (!isActiveAndEnabled)
+        {
+            return;
+        }
+
+        layoutGroup ??= GetComponent<HorizontalLayoutGroup>();
+        rectTransform ??= GetComponent<RectTransform>();
+        RecalculateSpacing();
+    }
+
+    public void RecalculateSpacing()
+    {
+        if (layoutGroup == null || rectTransform == null)
+        {
+            return;
+        }
+
+        int cardCount = transform.childCount;
         if (cardCount < 2)
         {
             layoutGroup.spacing = defaultSpacing;
@@ -28,9 +59,7 @@ public class HandLayoutAdjuster : MonoBehaviour
         }
 
         float availableWidthForSpacing = rectTransform.rect.width - (cardWidth * cardCount);
-
         float requiredSpacing = availableWidthForSpacing / (cardCount - 1);
-
         layoutGroup.spacing = Mathf.Min(defaultSpacing, requiredSpacing);
     }
 }

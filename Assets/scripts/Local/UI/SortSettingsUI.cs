@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using Durak.Architecture.Singleplayer.Core;
 
 public class SortSettingsUI : MonoBehaviour
 {
@@ -26,11 +27,12 @@ public class SortSettingsUI : MonoBehaviour
         PlayerPrefs.SetInt("SortMethod", sortType);
         PlayerPrefs.Save();
 
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        SoundManager.Instance?.PlayClick();
 
-        if (GameManager.Instance != null && !GameManager.Instance.isDealing)
+        MatchControllerSP controller = MatchControllerSP.Instance;
+        if (controller != null && !controller.IsDealInProgress)
         {
-            GameManager.Instance.SortPlayerHand();
+            controller.SortPlayerHand();
         }
     }
 }

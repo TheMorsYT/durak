@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 6320327951457779911}
   - component: {fileID: 1425970000409055969}
   - component: {fileID: 980833890468732416}
+  - component: {fileID: 5040597918491507856}
   m_Layer: 5
   m_Name: ExampleCard
   m_TagString: Untagged
@@ -125,3 +126,15 @@ MonoBehaviour:
     type: 3}
   backSprite: {fileID: -1615198837252988192, guid: 2d725c3a5a1f4834a89b500acc6d4e77,
     type: 3}
+--- !u!225 &5040597918491507856
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1533316629146249083}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0

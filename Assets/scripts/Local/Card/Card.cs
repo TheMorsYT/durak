@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UI;
 
 public class Card : MonoBehaviour
@@ -28,20 +28,9 @@ public class Card : MonoBehaviour
 
     public void FlipCard(bool showFace)
     {
-        if (isFaceUp != showFace)
-        {
-            if (SoundManager.Instance != null) SoundManager.Instance.PlayFlip();
-        }
+        if (isFaceUp != showFace) SoundManager.Instance?.PlayFlip();
 
         isFaceUp = showFace;
-
-        if (isFaceUp)
-        {
-            cardImage.sprite = frontSprite;
-        }
-        else
-        {
-            cardImage.sprite = backSprite;
-        }
+        cardImage.sprite = isFaceUp ? frontSprite : backSprite;
     }
 }

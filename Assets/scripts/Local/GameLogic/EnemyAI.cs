@@ -1,467 +1,668 @@
-﻿using System.Collections;
+using System;
+using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
 using System.Linq;
+using Durak.Architecture.Shared.Events;
+using Durak.Architecture.Shared.FSM;
+using Durak.Architecture.Singleplayer.Core;
+using UnityEngine;
 
 public class EnemyAI : MonoBehaviour
 {
-    private GameManager gm;
+    private const float MinThinkDelaySeconds = 2.2f;
+    private const float ThinkWatchdogIntervalSeconds = 0.25f;
+    private const float StuckThinkTimeoutSeconds = 8f;
+
+    private MatchControllerSP controller;
     private int difficulty;
-    private List<string> seenCards = new List<string>();
-    private List<Card.CardSuit> knownPlayerVoids = new List<Card.CardSuit>();
+    private readonly HashSet<string> seenCards = new HashSet<string>();
+    private readonly HashSet<Card.CardSuit> knownPlayerVoids = new HashSet<Card.CardSuit>();
+    private readonly List<IDisposable> subscriptions = new List<IDisposable>();
+
+    [SerializeField] private bool enableDebugLogs = false;
+    [SerializeField] private Vector2 thinkDelaySecondsRange = new Vector2(2.2f, 3.6f);
+    [SerializeField] private Vector2 postActionDelaySecondsRange = new Vector2(0.9f, 1.6f);
 
     private Coroutine currentThinkRoutine;
+    private bool subscribed;
+    private float thinkWatchdogTimer;
+    private float currentThinkElapsed;
+    private float nextAllowedThinkAt;
 
-    void Start()
+    private void Awake()
     {
-        gm = Object.FindFirstObjectByType<GameManager>();
         difficulty = PlayerPrefs.GetInt("BotDifficulty", 0);
-        knownPlayerVoids.Clear();
+        TryResolveController();
+    }
+
+    private void Start()
+    {
+        SubscribeIfPossible();
+        ScheduleIfBotNeedsAction();
+    }
+
+    private void OnEnable()
+    {
+        TryResolveController();
+        SubscribeIfPossible();
+    }
+
+    private void OnDisable()
+    {
+        UnsubscribeAll();
+        StopThinkRoutine();
+    }
+
+    private void Update()
+    {
+        if (currentThinkRoutine != null)
+        {
+            currentThinkElapsed += Mathf.Max(0f, Time.deltaTime);
+            if (currentThinkElapsed >= StuckThinkTimeoutSeconds)
+            {
+                LogDebug($"Think coroutine timeout ({currentThinkElapsed:0.00}s). Restarting scheduler. {DescribeContext()}");
+                StopThinkRoutine();
+            }
+        }
+
+        thinkWatchdogTimer -= Time.deltaTime;
+        if (thinkWatchdogTimer > 0f)
+        {
+            return;
+        }
+
+        thinkWatchdogTimer = ThinkWatchdogIntervalSeconds;
+        if (currentThinkRoutine == null)
+        {
+            ScheduleIfBotNeedsAction();
+        }
+    }
+
+    public void ForceScheduleNow()
+    {
+        TryResolveController();
+        ScheduleIfBotNeedsAction();
     }
 
     public void UpdateMemory()
     {
-        if (difficulty < 2) return;
-
-        foreach (Transform card in gm.discardPile)
+        if (difficulty < 2 || controller == null || controller.DiscardPile == null)
         {
-            string cardID = card.name;
-            if (!seenCards.Contains(cardID))
+            return;
+        }
+
+        foreach (Transform card in controller.DiscardPile)
+        {
+            if (card != null)
             {
-                seenCards.Add(cardID);
+                seenCards.Add(card.name);
             }
         }
     }
 
-    public void TryToDefend()
+    private void TryResolveController()
     {
-        if (currentThinkRoutine != null) StopCoroutine(currentThinkRoutine);
-        currentThinkRoutine = StartCoroutine(DefendRoutine());
+        controller ??= MatchControllerSP.Instance;
+        if (controller == null)
+        {
+            controller = FindFirstObjectByType<MatchControllerSP>();
+        }
     }
 
-    public void TryToAttack()
+    private void SubscribeIfPossible()
     {
-        if (currentThinkRoutine != null) StopCoroutine(currentThinkRoutine);
-        currentThinkRoutine = StartCoroutine(AttackRoutine());
+        if (subscribed || controller == null || controller.EventBus == null)
+        {
+            return;
+        }
+
+        subscriptions.Add(controller.EventBus.Subscribe<MatchPhaseChangedEvent>(_ => ScheduleIfBotNeedsAction()));
+        subscriptions.Add(controller.EventBus.Subscribe<TurnChangedEvent>(_ => ScheduleIfBotNeedsAction()));
+        subscriptions.Add(controller.EventBus.Subscribe<TableChangedEvent>(_ => ScheduleIfBotNeedsAction()));
+        subscriptions.Add(controller.EventBus.Subscribe<DealStateChangedEvent>(_ => ScheduleIfBotNeedsAction()));
+        subscriptions.Add(controller.EventBus.Subscribe<GameOverChangedEvent>(_ => ScheduleIfBotNeedsAction()));
+        subscriptions.Add(controller.EventBus.Subscribe<CardPlayedEvent>(_ => ScheduleIfBotNeedsAction()));
+        subscribed = true;
     }
 
-    IEnumerator DefendRoutine()
+    private void UnsubscribeAll()
     {
-        yield return new WaitForSeconds(Random.Range(1.2f, 2.0f));
-
-        var tableCards = gm.GetTableAttackCards();
-        if (tableCards.Count == 0 || gm.isTurnChanging) yield break;
-
-        Transform attackCardTransform = null;
-        foreach (Transform t in tableCards)
+        for (int i = 0; i < subscriptions.Count; i++)
         {
-            if (t.childCount == 0)
-            {
-                attackCardTransform = t;
-                break;
-            }
+            subscriptions[i]?.Dispose();
         }
 
-        if (attackCardTransform == null) yield break;
+        subscriptions.Clear();
+        subscribed = false;
+    }
 
-        Card attackCard = attackCardTransform.GetComponent<Card>();
-        List<Card> hand = GetHand();
-
-        if (gm.isTransferMode && gm.IsTableUncovered() && gm.playerHand.childCount >= (tableCards.Count + 1))
+    private void ScheduleIfBotNeedsAction()
+    {
+        if (controller == null || controller.Context == null || controller.Context.IsGameOver || controller.Context.IsDealInProgress)
         {
-            Card transferCard = TryFindTransferCard(attackCard, hand);
-
-            if (transferCard != null)
-            {
-                TossCardToTable(transferCard.transform);
-
-                gm.isPlayerAttacker = false;
-                gm.isBotTaking = false;
-                yield break;
-            }
+            LogDebug("Schedule skipped: invalid context/game over/dealing.");
+            StopThinkRoutine();
+            return;
         }
 
-        var validCards = hand.Where(c => CanBeat(attackCard, c)).ToList();
-        Card bestDefense = null;
-
-        if (validCards.Count > 0)
+        if (Time.time < nextAllowedThinkAt)
         {
-            if (difficulty == 0)
+            return;
+        }
+
+        bool botAttacker = controller.Context.Turn.AttackerId == MatchControllerSP.BotPlayerId;
+        bool botDefender = controller.Context.Turn.DefenderId == MatchControllerSP.BotPlayerId;
+        MatchPhase phase = controller.Context.Phase;
+
+        bool shouldAct = phase switch
+        {
+            MatchPhase.Attacking => botAttacker,
+            MatchPhase.Defending => botAttacker || botDefender,
+            MatchPhase.FollowUpThrowIn => botAttacker,
+            _ => false
+        };
+
+        LogDebug($"Schedule check: shouldAct={shouldAct}, phase={phase}, botAttacker={botAttacker}, botDefender={botDefender}, thinkRunning={currentThinkRoutine != null}");
+
+        if (!shouldAct)
+        {
+            StopThinkRoutine();
+            return;
+        }
+
+        RestartThinkRoutine(BotThinkAndActRoutine());
+    }
+
+    private IEnumerator BotThinkAndActRoutine()
+    {
+        float minDelay = Mathf.Max(MinThinkDelaySeconds, Mathf.Min(thinkDelaySecondsRange.x, thinkDelaySecondsRange.y));
+        float maxDelay = Mathf.Max(minDelay, Mathf.Max(thinkDelaySecondsRange.x, thinkDelaySecondsRange.y));
+        float thinkDelay = UnityEngine.Random.Range(minDelay, maxDelay);
+        LogDebug($"Think scheduled in {thinkDelay:0.00}s. {DescribeContext()}");
+        yield return new WaitForSeconds(thinkDelay);
+
+        bool acted = false;
+        try
+        {
+            if (controller == null || controller.Context == null || controller.Context.IsGameOver || controller.Context.IsDealInProgress)
             {
-                bestDefense = validCards.FirstOrDefault();
-            }
-            else if (difficulty == 1)
-            {
-                bestDefense = validCards.OrderBy(c => c.suit == gm.trumpSuit).ThenBy(c => (int)c.value).FirstOrDefault();
+                LogDebug("Think canceled after delay due to invalid context/game over/dealing.");
             }
             else
             {
-                var allPairs = hand.Where(c => c.suit != gm.trumpSuit && c.value != Card.CardValue.Joker)
-                                   .GroupBy(c => c.value)
-                                   .Where(g => g.Count() > 1)
-                                   .SelectMany(g => g)
-                                   .ToList();
+                ObserveDefenseOutcomes();
 
-                bestDefense = validCards.OrderBy(c => c.value == Card.CardValue.Joker)
-                                        .ThenBy(c => c.suit == gm.trumpSuit)
-                                        .ThenBy(c => allPairs.Contains(c))
-                                        .ThenBy(c => (int)c.value)
-                                        .FirstOrDefault();
+                MatchPhase phase = controller.Context.Phase;
+                bool botAttacker = controller.Context.Turn.AttackerId == MatchControllerSP.BotPlayerId;
+                bool botDefender = controller.Context.Turn.DefenderId == MatchControllerSP.BotPlayerId;
+                LogDebug($"Think start: phase={phase}, botAttacker={botAttacker}, botDefender={botDefender}");
 
-                if (bestDefense != null)
+                if (phase == MatchPhase.Defending && botDefender)
                 {
-                    bool isJoker = bestDefense.value == Card.CardValue.Joker;
-                    bool isHighTrump = bestDefense.suit == gm.trumpSuit && (int)bestDefense.value >= 11;
-                    bool isAttackCheap = attackCard.suit != gm.trumpSuit && (int)attackCard.value < 11;
+                    acted = ExecuteDefendDecision();
+                }
+                else if (phase == MatchPhase.FollowUpThrowIn && botAttacker)
+                {
+                    acted = ExecuteFollowUpDecision();
+                }
+                else if ((phase == MatchPhase.Attacking || phase == MatchPhase.Defending) && botAttacker)
+                {
+                    acted = ExecuteAttackDecision();
+                }
 
-                    if ((isJoker || isHighTrump) && isAttackCheap && gm.deckArea.childCount > 6)
-                    {
-                        bestDefense = null;
-                    }
+                if (!acted)
+                {
+                    LogDebug($"Think produced no action. Ensuring phase timer. {DescribeContext()}");
+                    controller.EnsurePhaseTimerRunning();
+                }
+                else
+                {
+                    float minPostDelay = Mathf.Max(0f, Mathf.Min(postActionDelaySecondsRange.x, postActionDelaySecondsRange.y));
+                    float maxPostDelay = Mathf.Max(minPostDelay, Mathf.Max(postActionDelaySecondsRange.x, postActionDelaySecondsRange.y));
+                    nextAllowedThinkAt = Time.time + UnityEngine.Random.Range(minPostDelay, maxPostDelay);
                 }
             }
         }
-
-        if (bestDefense != null)
+        catch (Exception exception)
         {
-            ExecuteMove(bestDefense.transform, attackCardTransform, true);
-
-            bool needsMoreDefense = false;
-            foreach (Transform t in gm.GetTableAttackCards())
-            {
-                if (t.childCount == 0)
-                {
-                    needsMoreDefense = true;
-                    break;
-                }
-            }
-
-            if (needsMoreDefense && !gm.isTurnChanging)
-            {
-                TryToDefend();
-            }
+            Debug.LogException(exception);
+            LogDebug($"Think exception: {exception.GetType().Name}: {exception.Message}");
         }
-        else
+        finally
         {
-            gm.StartBotTakeTimer();
+            currentThinkRoutine = null;
+            currentThinkElapsed = 0f;
+            ScheduleIfBotNeedsAction();
         }
     }
 
-    private Card TryFindTransferCard(Card attackCard, List<Card> hand)
+    private bool ExecuteDefendDecision()
     {
-        var possibleTransfers = hand.Where(c => c.value == attackCard.value).ToList();
-        if (possibleTransfers.Count == 0)
+        List<Transform> roots = controller.GetTableAttackCards();
+        Transform uncoveredRoot = roots.FirstOrDefault(root => root != null && root.childCount == 0);
+        if (uncoveredRoot == null)
+        {
+            LogDebug("Defend decision: no uncovered attack card.");
+            return false;
+        }
+
+        Card attackCard = uncoveredRoot.GetComponent<Card>();
+        if (attackCard == null)
+        {
+            LogDebug("Defend decision: uncovered root has no Card.");
+            return false;
+        }
+
+        List<Card> botHand = controller.GetHandCards(MatchControllerSP.BotPlayerId);
+        if (botHand.Count <= 0)
+        {
+            bool takeNoCards = controller.RequestTakeFromBot();
+            LogDebug($"Defend decision: no cards in hand, take result={takeNoCards}");
+            return takeNoCards;
+        }
+
+        Card transferCard = TryFindTransferCard(attackCard, botHand, roots.Count);
+        if (transferCard != null)
+        {
+            bool transferAccepted = controller.RequestTransferFromBot(transferCard);
+            LogDebug($"Defend decision: try transfer {DescribeCard(transferCard)}, result={transferAccepted}");
+            if (transferAccepted)
+            {
+                return true;
+            }
+        }
+
+        List<Card> validDefenseCards = botHand.Where(card => controller.CanCardBeat(card, attackCard)).ToList();
+        Card bestDefense = SelectBestDefenseCard(validDefenseCards, attackCard, botHand);
+        if (bestDefense != null)
+        {
+            bool defendAccepted = controller.RequestDefendCardFromBot(bestDefense, attackCard);
+            LogDebug($"Defend decision: defend with {DescribeCard(bestDefense)} vs {DescribeCard(attackCard)}, result={defendAccepted}");
+            if (defendAccepted)
+            {
+                return true;
+            }
+        }
+
+        bool takeAccepted = controller.RequestTakeFromBot();
+        LogDebug($"Defend decision: fallback take result={takeAccepted}");
+        return takeAccepted;
+    }
+
+    private bool ExecuteAttackDecision()
+    {
+        List<Transform> roots = controller.GetTableAttackCards();
+        if (roots.Count == 0)
+        {
+            Card openingCard = SelectInitialAttackCard();
+            if (openingCard != null)
+            {
+                bool playedOpening = controller.RequestPlayCardFromBot(openingCard);
+                LogDebug($"Attack decision: opening {DescribeCard(openingCard)}, result={playedOpening}");
+                return playedOpening;
+            }
+
+            LogDebug("Attack decision: no opening card selected.");
+            return false;
+        }
+
+        if (roots.Count >= controller.GetMaxAttackCardsLimit())
+        {
+            bool voteAtLimit = controller.RequestVoteBitoFromBot();
+            LogDebug($"Attack decision: max attack reached, vote bito result={voteAtLimit}");
+            return voteAtLimit;
+        }
+
+        Card tossCard = SelectTossCard();
+        if (tossCard != null)
+        {
+            bool tossed = controller.RequestPlayCardFromBot(tossCard);
+            LogDebug($"Attack decision: toss {DescribeCard(tossCard)}, result={tossed}");
+            return tossed;
+        }
+
+        if (controller.AreAllCardsDefended())
+        {
+            bool voteAllDefended = controller.RequestVoteBitoFromBot();
+            LogDebug($"Attack decision: all defended, vote bito result={voteAllDefended}");
+            return voteAllDefended;
+        }
+
+        LogDebug("Attack decision: no legal toss and not all defended.");
+        return false;
+    }
+
+    private bool ExecuteFollowUpDecision()
+    {
+        Card tossCard = SelectTossCard();
+        if (tossCard != null)
+        {
+            bool tossed = controller.RequestPlayCardFromBot(tossCard);
+            LogDebug($"Follow-up decision: toss {DescribeCard(tossCard)}, result={tossed}");
+            if (tossed)
+            {
+                return true;
+            }
+        }
+
+        bool vote = controller.RequestVoteBitoFromBot();
+        LogDebug($"Follow-up decision: vote bito result={vote}");
+        return vote;
+    }
+
+    private Card SelectInitialAttackCard()
+    {
+        List<Card> hand = controller.GetHandCards(MatchControllerSP.BotPlayerId);
+        if (hand.Count <= 0)
         {
             return null;
         }
 
-        var nonTrumpTransfer = possibleTransfers.FirstOrDefault(c => c.suit != gm.trumpSuit && c.value != Card.CardValue.Joker);
-        if (nonTrumpTransfer != null)
+        List<Card> nonTrump = hand
+            .Where(c => c.value != Card.CardValue.Joker && c.suit != controller.TrumpSuit)
+            .OrderBy(c => (int)c.value)
+            .ToList();
+
+        if (difficulty <= 0)
         {
-            return nonTrumpTransfer;
+            if (nonTrump.Count > 0)
+            {
+                int candidateCount = Mathf.Min(3, nonTrump.Count);
+                return nonTrump[UnityEngine.Random.Range(0, candidateCount)];
+            }
+
+            List<Card> lowRisk = hand
+                .Where(c => c.value != Card.CardValue.Joker)
+                .OrderBy(c => c.suit == controller.TrumpSuit ? 1 : 0)
+                .ThenBy(c => (int)c.value)
+                .ToList();
+
+            return lowRisk.Count > 0 ? lowRisk[0] : hand[0];
         }
 
-        Card trumpTransfer = possibleTransfers.FirstOrDefault(c => c.suit == gm.trumpSuit);
-        if (trumpTransfer != null)
+        if (difficulty >= 1 && !controller.IsTransferModeEnabled)
         {
-            if (difficulty == 0)
+            IGrouping<Card.CardValue, Card> grouped = nonTrump
+                .GroupBy(c => c.value)
+                .OrderByDescending(g => g.Count())
+                .ThenBy(g => (int)g.Key)
+                .FirstOrDefault(g => g.Count() > 1);
+
+            if (grouped != null)
             {
-                return trumpTransfer;
+                return grouped.FirstOrDefault();
+            }
+        }
+
+        if (difficulty >= 2)
+        {
+            Card exploitVoid = nonTrump
+                .Where(card => knownPlayerVoids.Contains(card.suit))
+                .OrderByDescending(card => (int)card.value)
+                .FirstOrDefault();
+
+            if (exploitVoid != null)
+            {
+                return exploitVoid;
             }
 
-            int dangerLevel = gm.GetTableAttackCards().Count;
-            bool isEndGame = gm.deckArea.childCount == 0;
-            int trumpValue = (int)trumpTransfer.value;
-
+            bool isEndGame = controller.DeckArea == null || controller.DeckArea.childCount == 0;
             if (isEndGame)
             {
-                return trumpTransfer;
-            }
+                List<Card> playerCards = controller.GetHandCards(MatchControllerSP.LocalPlayerId);
+                List<Card> unblockableCards = hand
+                    .Where(myCard => !playerCards.Any(playerCard => controller.CanCardBeat(playerCard, myCard)))
+                    .OrderBy(card => (int)card.value)
+                    .ToList();
 
-            if (dangerLevel >= 3)
-            {
-                return trumpTransfer;
-            }
+                if (unblockableCards.Count > 0)
+                {
+                    Card nonTrumpUnblockable = unblockableCards
+                        .Where(card => card.suit != controller.TrumpSuit && card.value != Card.CardValue.Joker)
+                        .OrderBy(card => (int)card.value)
+                        .FirstOrDefault();
 
-            if (difficulty == 1)
-            {
-                if (trumpValue < 11)
-                {
-                    return trumpTransfer;
-                }
-                else
-                {
-                    return null;
+                    return nonTrumpUnblockable ?? unblockableCards[0];
                 }
             }
+        }
 
-            if (difficulty == 2)
-            {
-                if (trumpValue <= 9 && dangerLevel >= 2)
-                {
-                    return trumpTransfer;
-                }
-                else
-                {
-                    return null;
-                }
-            }
+        if (nonTrump.Count > 0)
+        {
+            return nonTrump[0];
+        }
+
+        List<Card> lowRiskFallback = hand
+            .Where(c => c.value != Card.CardValue.Joker)
+            .OrderBy(c => c.suit == controller.TrumpSuit ? 1 : 0)
+            .ThenBy(c => (int)c.value)
+            .ToList();
+
+        return lowRiskFallback.Count > 0 ? lowRiskFallback[0] : hand[0];
+    }
+
+    private Card SelectTossCard()
+    {
+        List<Card> hand = controller.GetHandCards(MatchControllerSP.BotPlayerId);
+        if (hand.Count <= 0)
+        {
+            return null;
+        }
+
+        HashSet<Card.CardValue> tableValues = new HashSet<Card.CardValue>();
+        Card[] tableCards = controller.TableArea != null
+            ? controller.TableArea.GetComponentsInChildren<Card>(true)
+            : Array.Empty<Card>();
+        for (int i = 0; i < tableCards.Length; i++)
+        {
+            tableValues.Add(tableCards[i].value);
+        }
+
+        List<Card> candidates = hand.Where(c => tableValues.Contains(c.value)).ToList();
+        if (candidates.Count <= 0)
+        {
+            return null;
+        }
+
+        if (difficulty <= 0)
+        {
+            return candidates[0];
+        }
+
+        bool endGame = controller.DeckArea == null || controller.DeckArea.childCount == 0;
+        List<Card> safe = endGame
+            ? candidates
+            : candidates.Where(c => c.suit != controller.TrumpSuit && c.value != Card.CardValue.Joker).ToList();
+        if (safe.Count <= 0)
+        {
+            safe = candidates;
+        }
+
+        return safe
+            .OrderByDescending(c => hand.Count(h => h.value == c.value && h.suit != controller.TrumpSuit))
+            .ThenBy(c => (int)c.value)
+            .FirstOrDefault();
+    }
+
+    private Card TryFindTransferCard(Card attackCard, List<Card> hand, int currentAttackRoots)
+    {
+        if (!controller.IsTransferModeEnabled)
+        {
+            return null;
+        }
+
+        List<Card> candidates = hand.Where(c => c.value == attackCard.value).ToList();
+        if (candidates.Count <= 0)
+        {
+            return null;
+        }
+
+        if (controller.GetHandCards(MatchControllerSP.LocalPlayerId).Count < currentAttackRoots + 1)
+        {
+            return null;
+        }
+
+        Card nonTrump = candidates.FirstOrDefault(c => c.suit != controller.TrumpSuit && c.value != Card.CardValue.Joker);
+        if (nonTrump != null)
+        {
+            return nonTrump;
+        }
+
+        Card trump = candidates.FirstOrDefault(c => c.suit == controller.TrumpSuit);
+        if (trump == null || difficulty <= 0)
+        {
+            return trump;
+        }
+
+        bool endGame = controller.DeckArea == null || controller.DeckArea.childCount == 0;
+        int trumpValue = (int)trump.value;
+        if (endGame || currentAttackRoots >= 3)
+        {
+            return trump;
+        }
+
+        if (difficulty == 1 && trumpValue < 11)
+        {
+            return trump;
+        }
+
+        if (difficulty >= 2 && trumpValue <= 9 && currentAttackRoots >= 2)
+        {
+            return trump;
         }
 
         return null;
     }
 
-    IEnumerator AttackRoutine()
+    private Card SelectBestDefenseCard(List<Card> validDefenseCards, Card attackCard, List<Card> hand)
     {
-        yield return new WaitForSeconds(Random.Range(1.0f, 2.0f));
-        if (gm.isTurnChanging) yield break;
-
-        var tableCards = gm.GetTableAttackCards();
-
-        if (difficulty == 2 && tableCards.Count > 0)
+        if (validDefenseCards == null || validDefenseCards.Count <= 0)
         {
-            foreach (Transform attackT in tableCards)
-            {
-                if (attackT.childCount > 0)
-                {
-                    Card atk = attackT.GetComponent<Card>();
-                    Card def = attackT.GetChild(0).GetComponent<Card>();
-                    if (atk != null && def != null)
-                    {
-                        if (atk.suit != gm.trumpSuit && def.suit == gm.trumpSuit)
-                        {
-                            if (!knownPlayerVoids.Contains(atk.suit))
-                            {
-                                knownPlayerVoids.Add(atk.suit);
-                            }
-                        }
-                        else if (def.suit == atk.suit && def.value != Card.CardValue.Joker)
-                        {
-                            if (knownPlayerVoids.Contains(atk.suit)) knownPlayerVoids.Remove(atk.suit);
-                        }
-                    }
-                }
-            }
+            return null;
         }
 
-        if (tableCards.Count == 0)
+        if (difficulty <= 0)
         {
-            if (gm.isPlayerAttacker)
-            {
-                yield break;
-            }
-
-            List<Transform> attacks = SelectInitialAttacks();
-
-            if (attacks.Count > 0)
-            {
-                foreach (Transform atkCard in attacks)
-                {
-                    TossCardToTable(atkCard);
-                    yield return new WaitForSeconds(0.4f);
-                }
-            }
+            return validDefenseCards[0];
         }
-        else
+
+        if (difficulty == 1)
         {
-            if (tableCards.Count >= gm.GetMaxAttackCards())
+            return validDefenseCards
+                .OrderBy(card => card.suit == controller.TrumpSuit)
+                .ThenBy(card => (int)card.value)
+                .FirstOrDefault();
+        }
+
+        List<Card> duplicateValues = hand
+            .Where(card => card.suit != controller.TrumpSuit && card.value != Card.CardValue.Joker)
+            .GroupBy(card => card.value)
+            .Where(group => group.Count() > 1)
+            .SelectMany(group => group)
+            .ToList();
+
+        Card best = validDefenseCards
+            .OrderBy(card => card.value == Card.CardValue.Joker)
+            .ThenBy(card => card.suit == controller.TrumpSuit)
+            .ThenBy(card => duplicateValues.Contains(card))
+            .ThenBy(card => (int)card.value)
+            .FirstOrDefault();
+
+        if (best == null)
+        {
+            return null;
+        }
+
+        bool isJoker = best.value == Card.CardValue.Joker;
+        bool isHighTrump = best.suit == controller.TrumpSuit && (int)best.value >= 11;
+        bool cheapAttack = attackCard.suit != controller.TrumpSuit && (int)attackCard.value < 11;
+        bool deckRich = controller.DeckArea != null && controller.DeckArea.childCount > 6;
+
+        return (isJoker || isHighTrump) && cheapAttack && deckRich ? null : best;
+    }
+
+    private void ObserveDefenseOutcomes()
+    {
+        if (difficulty < 2)
+        {
+            return;
+        }
+
+        List<Transform> roots = controller.GetTableAttackCards();
+        for (int i = 0; i < roots.Count; i++)
+        {
+            Transform attackRoot = roots[i];
+            if (attackRoot == null || attackRoot.childCount <= 0)
             {
-                gm.SendToBito();
-                yield break;
+                continue;
             }
 
-            List<Transform> tosses = GetTossCards();
-
-            if (tosses.Count > 0)
+            Card attack = attackRoot.GetComponent<Card>();
+            Card defense = attackRoot.GetChild(0).GetComponent<Card>();
+            if (attack == null || defense == null)
             {
-                foreach (Transform toss in tosses)
-                {
-                    if (gm.GetTableAttackCards().Count >= gm.GetMaxAttackCards()) break;
-                    TossCardToTable(toss);
-                    yield return new WaitForSeconds(0.4f);
-                }
+                continue;
             }
-            else
+
+            if (attack.suit != controller.TrumpSuit && defense.suit == controller.TrumpSuit)
             {
-                yield return new WaitForSeconds(0.8f);
-                if (gm.AreAllCardsDefended())
-                {
-                    gm.SendToBito();
-                }
+                knownPlayerVoids.Add(attack.suit);
+            }
+            else if (defense.suit == attack.suit && defense.value != Card.CardValue.Joker)
+            {
+                knownPlayerVoids.Remove(attack.suit);
             }
         }
     }
 
-    private List<Card> GetKnownPlayerCards()
+    private void RestartThinkRoutine(IEnumerator routine)
     {
-        return gm.playerHand.Cast<Transform>().Select(t => t.GetComponent<Card>()).ToList();
+        StopThinkRoutine();
+        currentThinkElapsed = 0f;
+        currentThinkRoutine = StartCoroutine(routine);
+        LogDebug("Think routine started.");
     }
 
-    private List<Transform> SelectInitialAttacks()
+    private void StopThinkRoutine()
     {
-        var hand = GetHand();
-        List<Transform> selectedCards = new List<Transform>();
-        if (hand.Count == 0) return selectedCards;
-
-        if (difficulty == 0)
+        if (currentThinkRoutine != null)
         {
-            selectedCards.Add(hand[Random.Range(0, hand.Count)].transform);
-            return selectedCards;
+            StopCoroutine(currentThinkRoutine);
+            currentThinkRoutine = null;
+            currentThinkElapsed = 0f;
+            LogDebug("Think routine stopped.");
         }
-
-        var safeCards = hand.Where(c => c.value != Card.CardValue.Joker).ToList();
-        if (safeCards.Count == 0) safeCards = hand;
-        var nonTrumps = safeCards.Where(c => c.suit != gm.trumpSuit).ToList();
-
-        if (difficulty >= 1 && !gm.isTransferMode)
-        {
-            var grouped = nonTrumps.GroupBy(c => c.value)
-                                   .Where(g => g.Count() > 1)
-                                   .OrderByDescending(g => g.Count())
-                                   .ThenBy(g => (int)g.Key)
-                                   .FirstOrDefault();
-
-            if (grouped != null)
-            {
-                int maxCanAttack = Mathf.Min(grouped.Count(), gm.GetMaxAttackCards());
-                foreach (var card in grouped.Take(maxCanAttack))
-                {
-                    selectedCards.Add(card.transform);
-                }
-                return selectedCards;
-            }
-        }
-
-        if (difficulty == 2)
-        {
-            bool isEndGame = gm.deckArea.childCount == 0;
-            if (isEndGame)
-            {
-                var playerCards = GetKnownPlayerCards();
-                var unblockableCards = hand.Where(myCard => !playerCards.Any(pCard => CanBeat(myCard, pCard))).ToList();
-                if (unblockableCards.Count > 0)
-                {
-                    var nonTrumpUnblockable = unblockableCards.Where(c => c.suit != gm.trumpSuit && c.value != Card.CardValue.Joker).OrderBy(c => (int)c.value).FirstOrDefault();
-                    if (nonTrumpUnblockable != null) { selectedCards.Add(nonTrumpUnblockable.transform); return selectedCards; }
-                    selectedCards.Add(unblockableCards.OrderBy(c => (int)c.value).First().transform);
-                    return selectedCards;
-                }
-            }
-
-            var exploitVoids = nonTrumps.Where(c => knownPlayerVoids.Contains(c.suit)).OrderByDescending(c => (int)c.value).ToList();
-            if (exploitVoids.Count > 0)
-            {
-                selectedCards.Add(exploitVoids.First().transform);
-                return selectedCards;
-            }
-        }
-
-        if (nonTrumps.Count > 0)
-        {
-            selectedCards.Add(nonTrumps.OrderBy(c => (int)c.value).First().transform);
-        }
-        else
-        {
-            selectedCards.Add(safeCards.OrderBy(c => (int)c.value).First().transform);
-        }
-
-        return selectedCards;
     }
 
-    private List<Transform> GetTossCards()
+    private void LogDebug(string message)
     {
-        var tableValues = gm.tableArea.GetComponentsInChildren<Card>().Select(c => c.value).Distinct().ToList();
-        var hand = GetHand();
-        List<Transform> tosses = new List<Transform>();
-
-        var candidates = hand.Where(c => tableValues.Contains(c.value)).ToList();
-        if (candidates.Count == 0) return tosses;
-
-        if (difficulty == 0)
+        if (!enableDebugLogs)
         {
-            tosses.Add(candidates.FirstOrDefault()?.transform);
-            return tosses;
+            return;
         }
 
-        bool isEndGame = gm.deckArea.childCount == 0;
-        var safeTossCandidates = isEndGame ? candidates : candidates.Where(c => c.suit != gm.trumpSuit && c.value != Card.CardValue.Joker).ToList();
+#if DURAK_VERBOSE_LOGS
+        Debug.Log($"[EnemyAI] {message}");
+#endif
+    }
 
-        if (safeTossCandidates.Count > 0)
+    private string DescribeContext()
+    {
+        if (controller == null || controller.Context == null)
         {
-            var sortedCandidates = safeTossCandidates
-                                    .OrderByDescending(c => hand.Count(h => h.value == c.value && h.suit != gm.trumpSuit))
-                                    .ThenBy(c => (int)c.value)
-                                    .ToList();
-
-            int maxCanToss = gm.GetMaxAttackCards() - gm.GetTableAttackCards().Count;
-
-            foreach (var cand in sortedCandidates.Take(maxCanToss))
-            {
-                if (difficulty == 2 && !isEndGame && (int)cand.value >= 11 && hand.Count(h => h.value == cand.value) == 1) continue;
-
-                tosses.Add(cand.transform);
-            }
+            return "ctx=null";
         }
 
-        return tosses;
+        MatchPhase phase = controller.Context.Phase;
+        ulong attacker = controller.Context.Turn.AttackerId;
+        ulong defender = controller.Context.Turn.DefenderId;
+        bool timerRunning = controller.Context.Timer.IsRunning;
+        float timerRemain = controller.Context.Timer.RemainingSeconds;
+        return $"phase={phase}, attacker={attacker}, defender={defender}, timerRunning={timerRunning}, timerRemain={timerRemain:0.00}";
     }
 
-    private bool CanBeat(Card attack, Card defense)
+    private static string DescribeCard(Card card)
     {
-        if (defense.value == Card.CardValue.Joker)
-        {
-            bool isTrumpRed = (gm.trumpSuit == Card.CardSuit.Hearts || gm.trumpSuit == Card.CardSuit.Diamonds);
-            bool defRed = (defense.suit == Card.CardSuit.Hearts || defense.suit == Card.CardSuit.Diamonds);
-            bool atkRed = (attack.suit == Card.CardSuit.Hearts || attack.suit == Card.CardSuit.Diamonds);
-
-            if (defRed) return isTrumpRed || atkRed;
-            return !isTrumpRed || !atkRed;
-        }
-
-        if (attack.value == Card.CardValue.Joker) return false;
-        if (defense.suit == gm.trumpSuit && attack.suit != gm.trumpSuit) return true;
-        if (attack.suit == defense.suit) return defense.value > attack.value;
-        return false;
-    }
-
-    private List<Card> GetHand() => gm.enemyHand.Cast<Transform>().Select(t => t.GetComponent<Card>()).ToList();
-
-    private void ExecuteMove(Transform card, Transform parent, bool isDef)
-    {
-        card.SetParent(parent, false);
-        if (isDef) card.localPosition = new Vector3(30, -30, 0);
-        card.GetComponent<Card>().FlipCard(true);
-        card.GetComponent<CardMovement>().defaultParent = parent;
-
-        CanvasGroup cg = card.GetComponent<CanvasGroup>();
-        if (cg != null) cg.blocksRaycasts = false;
-
-        gm.CheckWinCondition();
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayCardToTable();
-    }
-
-    void TossCardToTable(Transform cardTrans)
-    {
-        cardTrans.SetParent(gm.tableArea, false);
-        cardTrans.GetComponent<Card>().FlipCard(true);
-        cardTrans.GetComponent<CardMovement>().defaultParent = gm.tableArea;
-
-        CanvasGroup cg = cardTrans.GetComponent<CanvasGroup>();
-        if (cg != null) cg.blocksRaycasts = false;
-
-        gm.CheckWinCondition();
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayCardToTable();
-    }
-
-    public IEnumerator TossAllPossibleCardsCoroutine()
-    {
-        while (gm.GetTableAttackCards().Count < gm.GetMaxAttackCards())
-        {
-            List<Transform> tosses = GetTossCards();
-            if (tosses.Count == 0) break;
-
-            TossCardToTable(tosses[0]);
-            yield return new WaitForSeconds(0.6f);
-        }
+        return card == null ? "null" : $"{card.suit}/{card.value}";
     }
 }

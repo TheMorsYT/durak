@@ -1,552 +1,121 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+using Durak.Architecture.Singleplayer.Core;
+using Durak.Architecture.Singleplayer.UI;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.SceneManagement;
-using System.Linq;
 
-public class GameManager : MonoBehaviour
+public sealed class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
-    public bool isDealing = false;
 
+    [Header("Controller")]
+    [SerializeField] private MatchControllerSP controller = null;
+    [SerializeField] private MatchUIManagerSP uiManager = null;
+
+    [Header("Board")]
     public GameObject cardPrefab;
     public Transform playerHand;
     public Transform enemyHand;
     public Transform deckArea;
     public Transform tableArea;
     public Transform discardPile;
+
+    [Header("Actions UI")]
     public GameObject bitoVisual;
     public GameObject bitoButton;
     public GameObject takeButton;
+    public GameObject transferZone;
     public Image trumpCardUI;
     public Image mainDeckUI;
+    public TMP_Text deckCardsText;
     public GameObject gameOverScreen;
     public Text gameOverText;
 
-    public bool isTransferMode = true;
-    public GameObject transferZone;
+    [Header("Profile UI")]
+    public Image playerAvatarImage;
+    public Image botAvatarImage;
+    public Sprite botAvatarSprite;
+    public Image playerTimerRingAttack;
+    public Image playerTimerRingDefend;
+    public Image botTimerRingAttack;
+    public Image botTimerRingDefend;
 
-    public bool isFirstTurn = true;
-    public bool isPlayerAttacker = true;
-    public bool isBotTaking = false;
-    public bool isGameOver = false;
-
-    public bool isTurnChanging = false;
-
+    [Header("Card Sprites")]
     public Sprite[] clubsSprites;
     public Sprite[] diamondsSprites;
     public Sprite[] heartsSprites;
     public Sprite[] spadesSprites;
     public Sprite[] jokerSprites;
 
-    private List<GameObject> deck = new List<GameObject>();
+    [Header("Legacy Mirror (Read-Only)")]
+    public bool isDealing;
+    public bool isTransferMode = true;
+    public bool isFirstTurn = true;
+    public bool isPlayerAttacker = true;
+    public bool isBotTaking;
+    public bool isGameOver;
+    public bool isTurnChanging;
+    public bool isPlayerTaking;
+
     public Card.CardSuit trumpSuit;
 
-    void Awake()
+    private MatchControllerSP Controller => controller != null ? controller : MatchControllerSP.Instance;
+
+    private void Awake()
     {
-        if (Instance == null) Instance = this;
-        else Destroy(gameObject);
-
-        int savedMode = PlayerPrefs.GetInt("GameMode", 1);
-        isTransferMode = (savedMode == 1);
-    }
-
-    void Start()
-    {
-        CreateDeck();
-        ShuffleDeck();
-        SetTrumpCard();
-        StartCoroutine(StartGameRoutine());
-    }
-
-    IEnumerator StartGameRoutine()
-    {
-        yield return StartCoroutine(RefillHandsWithAnimation());
-        DetermineFirstTurn();
-    }
-
-    void Update()
-    {
-        if (isGameOver || isTurnChanging) return;
-
-        int cardsOnTable = GetTableAttackCards().Count;
-
-        if (cardsOnTable > 0)
+        if (Instance == null)
         {
-            if (isPlayerAttacker)
-            {
-                takeButton.SetActive(false);
-                bitoButton.SetActive(AreAllCardsDefended() || isBotTaking);
-            }
-            else
-            {
-                bitoButton.SetActive(false);
-                takeButton.SetActive(true);
-            }
+            Instance = this;
         }
-        else
+        else if (Instance != this)
         {
-            bitoButton.SetActive(false);
-            takeButton.SetActive(false);
-        }
-    }
-
-    public List<Transform> GetTableAttackCards()
-    {
-        List<Transform> cards = new List<Transform>();
-        foreach (Transform t in tableArea)
-        {
-            if (t.GetComponent<Card>() != null)
-            {
-                cards.Add(t);
-            }
-        }
-        return cards;
-    }
-
-    public bool IsTableUncovered()
-    {
-        var tableCards = GetTableAttackCards();
-        if (tableCards.Count == 0) return false;
-
-        foreach (Transform t in tableCards)
-        {
-            if (t.childCount > 0) return false;
-        }
-        return true;
-    }
-
-    public bool CanTransfer(Card cardToTransfer)
-    {
-        if (!isTransferMode) return false;
-        if (isPlayerAttacker) return false;
-
-        var tableCards = GetTableAttackCards();
-        if (tableCards.Count == 0) return false;
-        if (!IsTableUncovered()) return false;
-
-        Card firstCardOnTable = tableCards[0].GetComponent<Card>();
-        if (cardToTransfer.value != firstCardOnTable.value) return false;
-
-        int totalAttackCards = tableCards.Count + 1;
-        if (enemyHand.childCount < totalAttackCards) return false;
-
-        return true;
-    }
-
-    public void TransferAttack(Card transferCard)
-    {
-        if (!isTransferMode) return;
-
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
-
-        transferCard.transform.SetParent(tableArea, false);
-        transferCard.transform.SetAsLastSibling();
-
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
-
-        transferCard.transform.SetParent(tableArea, false);
-        transferCard.transform.SetAsLastSibling();
-
-        if (transferZone != null) transferZone.SetActive(false);
-
-        isPlayerAttacker = true;
-        isBotTaking = false;
-
-        EnemyAI bot = GetComponent<EnemyAI>();
-        if (bot != null)
-        {
-            bot.TryToDefend();
-        }
-    }
-
-    void DetermineFirstTurn()
-    {
-        int minPlayerTrump = 100;
-        int minEnemyTrump = 100;
-        foreach (Transform cardTrans in playerHand)
-        {
-            Card card = cardTrans.GetComponent<Card>();
-            if (card.suit == trumpSuit && (int)card.value < minPlayerTrump)
-                minPlayerTrump = (int)card.value;
-        }
-        foreach (Transform cardTrans in enemyHand)
-        {
-            Card card = cardTrans.GetComponent<Card>();
-            if (card.suit == trumpSuit && (int)card.value < minEnemyTrump)
-                minEnemyTrump = (int)card.value;
-        }
-
-        if (minPlayerTrump < minEnemyTrump) isPlayerAttacker = true;
-        else if (minEnemyTrump < minPlayerTrump) isPlayerAttacker = false;
-        else isPlayerAttacker = true;
-
-        if (!isPlayerAttacker)
-        {
-            EnemyAI bot = GetComponent<EnemyAI>();
-            if (bot != null) bot.TryToAttack();
-        }
-    }
-
-    public void DrawCards()
-    {
-        StartCoroutine(RefillHandsWithAnimation());
-    }
-
-    IEnumerator RefillHandsWithAnimation()
-    {
-        isDealing = true;
-
-        Transform first = isPlayerAttacker ? playerHand : enemyHand;
-        Transform second = isPlayerAttacker ? enemyHand : playerHand;
-        bool firstFaceUp = isPlayerAttacker;
-        bool secondFaceUp = !isPlayerAttacker;
-
-        while (deck.Count > 0 && (first.childCount < 6 || second.childCount < 6))
-        {
-            if (first.childCount < 6 && deck.Count > 0)
-            {
-                GiveCardTo(first, firstFaceUp);
-                yield return new WaitForSeconds(0.15f);
-            }
-            if (second.childCount < 6 && deck.Count > 0)
-            {
-                GiveCardTo(second, secondFaceUp);
-                yield return new WaitForSeconds(0.15f);
-            }
-        }
-
-        if (deck.Count <= 1 && mainDeckUI != null) mainDeckUI.gameObject.SetActive(false);
-        if (deck.Count == 0 && trumpCardUI != null)
-        {
-            Color c = trumpCardUI.color; c.a = 0.35f; trumpCardUI.color = c;
-        }
-
-        SortPlayerHand();
-
-        isDealing = false;
-    }
-
-    void GiveCardTo(Transform hand, bool faceUp)
-    {
-        if (deck.Count > 0)
-        {
-            GameObject card = deck[0];
-            deck.RemoveAt(0);
-            card.transform.SetParent(hand, false);
-            card.transform.SetAsLastSibling();
-            card.SetActive(true);
-            card.GetComponent<Card>().FlipCard(faceUp);
-            if (SoundManager.Instance != null) SoundManager.Instance.PlayDeal();
-        }
-    }
-
-    public void TakeCards()
-    {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayTake();
-        isBotTaking = false;
-        Transform targetHand = isPlayerAttacker ? enemyHand : playerHand;
-
-        Card[] allCardsOnTable = tableArea.GetComponentsInChildren<Card>();
-        foreach (Card c in allCardsOnTable)
-        {
-            c.transform.SetParent(tableArea, true);
-        }
-
-        while (tableArea.GetComponentsInChildren<Card>().Length > 0)
-        {
-            Card cardData = tableArea.GetComponentsInChildren<Card>()[0];
-            Transform cardTransform = cardData.transform;
-            CardMovement cardMove = cardTransform.GetComponent<CardMovement>();
-
-            cardTransform.SetParent(targetHand, false);
-            cardTransform.localPosition = Vector3.zero;
-            cardTransform.SetAsLastSibling();
-
-            if (cardMove != null) cardMove.defaultParent = targetHand;
-
-            CanvasGroup cg = cardTransform.GetComponent<CanvasGroup>();
-            if (cg != null) cg.blocksRaycasts = true;
-
-            cardData.FlipCard(!isPlayerAttacker);
-        }
-
-        if (isFirstTurn) isFirstTurn = false;
-        DrawCards();
-        CheckWinCondition();
-
-        if (!isPlayerAttacker)
-        {
-            EnemyAI bot = GetComponent<EnemyAI>();
-            if (bot != null) bot.TryToAttack();
-        }
-    }
-
-    public void SendToBito()
-    {
-        if (isTurnChanging) return;
-
-        if (isBotTaking)
-        {
-            StopAllCoroutines();
-            isTurnChanging = false;
-            TakeCards();
+            Destroy(gameObject);
             return;
         }
 
-        isTurnChanging = true;
-
-        bitoButton.SetActive(false);
-        takeButton.SetActive(false);
-
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayBito();
-
-        Card[] allCardsOnTable = tableArea.GetComponentsInChildren<Card>();
-        foreach (Card c in allCardsOnTable)
+        controller ??= GetComponent<MatchControllerSP>();
+        if (controller == null)
         {
-            c.transform.SetParent(tableArea, true);
+            controller = FindFirstObjectByType<MatchControllerSP>();
         }
 
-        while (tableArea.GetComponentsInChildren<Card>().Length > 0)
+        if (controller == null)
         {
-            Transform card = tableArea.GetComponentsInChildren<Card>()[0].transform;
-            card.SetParent(discardPile, false);
-            card.gameObject.SetActive(false);
+            controller = gameObject.AddComponent<MatchControllerSP>();
         }
 
-        if (isFirstTurn) isFirstTurn = false;
-        if (bitoVisual != null) bitoVisual.SetActive(true);
+        controller.ConfigureFromFacade(this);
+        controller.Initialize();
 
-        DrawCards();
-
-        if (CheckWinCondition())
+        uiManager ??= GetComponent<MatchUIManagerSP>();
+        if (uiManager == null)
         {
-            isTurnChanging = false;
-            return;
+            uiManager = FindFirstObjectByType<MatchUIManagerSP>();
         }
 
-        isPlayerAttacker = !isPlayerAttacker;
-
-        EnemyAI bot = GetComponent<EnemyAI>();
-        if (bot != null)
+        if (uiManager == null)
         {
-            if (!isPlayerAttacker) bot.TryToAttack();
-            bot.UpdateMemory();
+            uiManager = gameObject.AddComponent<MatchUIManagerSP>();
         }
 
-        isTurnChanging = false;
+        uiManager.ConfigureFromFacade(this, controller);
     }
 
-    void CreateDeck()
+    private void OnDestroy()
     {
-        int deckSize = PlayerPrefs.GetInt("DeckSize", 36);
-        int startValue = 6;
-        if (deckSize == 24) startValue = 9;
-        else if (deckSize == 52 || deckSize == 54) startValue = 2;
-
-        deck.Clear();
-
-        for (int s = 0; s < 4; s++)
+        if (Instance == this)
         {
-            for (int v = startValue; v <= 14; v++)
-            {
-                GameObject newCard = Instantiate(cardPrefab, deckArea);
-
-                newCard.name = ((Card.CardSuit)s).ToString() + "_" + ((Card.CardValue)v).ToString();
-
-                newCard.SetActive(false);
-                Card cardScript = newCard.GetComponent<Card>();
-                cardScript.suit = (Card.CardSuit)s;
-                cardScript.value = (Card.CardValue)v;
-
-                int idx = (int)v - 2;
-                if (s == 0) cardScript.frontSprite = clubsSprites[idx];
-                else if (s == 1) cardScript.frontSprite = diamondsSprites[idx];
-                else if (s == 2) cardScript.frontSprite = heartsSprites[idx];
-                else if (s == 3) cardScript.frontSprite = spadesSprites[idx];
-
-                deck.Add(newCard);
-            }
-        }
-
-        if (deckSize == 54)
-        {
-            AddJokerToDeck(Card.CardSuit.Clubs, 0);
-            AddJokerToDeck(Card.CardSuit.Hearts, 1);
+            Instance = null;
         }
     }
 
-    void AddJokerToDeck(Card.CardSuit suit, int spriteIdx)
-    {
-        GameObject newCard = Instantiate(cardPrefab, deckArea);
+    public void PlayerTakesCards() => Controller?.RequestTakeFromPlayer();
 
-        newCard.name = "Joker_" + suit.ToString();
+    public void SendToBito() => Controller?.RequestVoteBitoFromPlayer();
 
-        newCard.SetActive(false);
-        Card cardScript = newCard.GetComponent<Card>();
-        cardScript.suit = suit;
-        cardScript.value = Card.CardValue.Joker;
-        if (jokerSprites.Length > spriteIdx) cardScript.frontSprite = jokerSprites[spriteIdx];
-        deck.Add(newCard);
-    }
+    public void OnPassButtonClicked() => SendToBito();
 
-    void ShuffleDeck()
-    {
-        for (int i = 0; i < deck.Count; i++)
-        {
-            GameObject temp = deck[i];
-            int rand = Random.Range(i, deck.Count);
-            deck[i] = deck[rand];
-            deck[rand] = temp;
-        }
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayShuffle();
-    }
+    public void RestartGame() => Controller?.RestartGame();
 
-    void SetTrumpCard()
-    {
-        if (deck.Count > 0)
-        {
-            int validTrumpIndex = deck.Count - 1;
-            while (validTrumpIndex >= 0 && deck[validTrumpIndex].GetComponent<Card>().value == Card.CardValue.Joker)
-            {
-                validTrumpIndex--;
-            }
-
-            if (validTrumpIndex >= 0 && validTrumpIndex != deck.Count - 1)
-            {
-                GameObject temp = deck[deck.Count - 1];
-                deck[deck.Count - 1] = deck[validTrumpIndex];
-                deck[validTrumpIndex] = temp;
-            }
-
-            Card ts = deck[deck.Count - 1].GetComponent<Card>();
-            trumpSuit = ts.suit;
-            trumpCardUI.sprite = ts.frontSprite;
-        }
-    }
-
-    public bool AreAllCardsDefended()
-    {
-        var tableCards = GetTableAttackCards();
-        if (tableCards.Count == 0) return false;
-        foreach (Transform t in tableCards) { if (t.childCount == 0) return false; }
-        return true;
-    }
-
-    public int GetMaxAttackCards()
-    {
-        int max = isFirstTurn ? 5 : 6;
-        int defCount = isPlayerAttacker ? enemyHand.childCount : playerHand.childCount;
-        int currentOnTable = GetTableAttackCards().Count;
-        return Mathf.Min(max, defCount + currentOnTable);
-    }
-
-    public bool HasCardsToToss(Transform hand)
-    {
-        var tableCards = GetTableAttackCards();
-        if (tableCards.Count == 0 || tableCards.Count >= GetMaxAttackCards()) return false;
-        var tableValues = tableArea.GetComponentsInChildren<Card>().Select(c => c.value);
-        return hand.Cast<Transform>().Any(t => tableValues.Contains(t.GetComponent<Card>().value));
-    }
-
-    public void StartBotTakeTimer() { StartCoroutine(BotTakeCoroutine()); }
-
-    IEnumerator BotTakeCoroutine()
-    {
-        isBotTaking = true;
-        yield return new WaitForSeconds(HasCardsToToss(playerHand) ? 5.0f : 1.0f);
-        if (isBotTaking) TakeCards();
-    }
-
-    public void PlayerTakesCards()
-    {
-        if (isTurnChanging) return;
-        isTurnChanging = true;
-
-        StartCoroutine(PlayerTakeCoroutine());
-    }
-
-    IEnumerator PlayerTakeCoroutine()
-    {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
-
-        takeButton.SetActive(false);
-        bitoButton.SetActive(false);
-
-        EnemyAI bot = GetComponent<EnemyAI>();
-        if (bot != null && HasCardsToToss(enemyHand))
-        {
-            yield return StartCoroutine(bot.TossAllPossibleCardsCoroutine());
-        }
-        yield return new WaitForSeconds(1.0f);
-
-        TakeCards();
-
-        isTurnChanging = false;
-    }
-
-    public void SortPlayerHand()
-    {
-        int sortType = PlayerPrefs.GetInt("SortMethod", 0);
-
-        if (sortType == 0 || playerHand.childCount == 0) return;
-
-        List<Card> cardsInHand = new List<Card>();
-        foreach (Transform t in playerHand)
-        {
-            Card c = t.GetComponent<Card>();
-            if (c != null) cardsInHand.Add(c);
-        }
-
-        if (sortType == 1)
-        {
-            cardsInHand = cardsInHand.OrderBy(c => (int)c.value).ThenBy(c => c.suit).ToList();
-        }
-        else if (sortType == 2)
-        {
-            cardsInHand = cardsInHand.OrderBy(c => c.suit == trumpSuit ? 1 : 0)
-                                     .ThenBy(c => c.suit)
-                                     .ThenBy(c => (int)c.value).ToList();
-        }
-
-        for (int i = 0; i < cardsInHand.Count; i++)
-        {
-            cardsInHand[i].transform.SetSiblingIndex(i);
-        }
-    }
-
-    public bool CheckWinCondition()
-    {
-        if (deck.Count == 0)
-        {
-            int lang = PlayerPrefs.GetInt("GameLanguage", 0);
-
-            if (playerHand.childCount == 0 && enemyHand.childCount == 0) { EndGame(lang == 0 ? "Нічия!" : "Draw!"); return true; }
-            if (playerHand.childCount == 0) { EndGame(lang == 0 ? "Виграш!" : "You Win!"); return true; }
-            if (enemyHand.childCount == 0) { EndGame(lang == 0 ? "Програш!" : "You Lose!"); return true; }
-        }
-        return false;
-    }
-
-    void EndGame(string msg)
-    {
-        isGameOver = true;
-        if (gameOverScreen != null) gameOverScreen.SetActive(true);
-        if (gameOverText != null) gameOverText.text = msg;
-        bitoButton.SetActive(false);
-        takeButton.SetActive(false);
-    }
-
-    public void RestartGame()
-    {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
-        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
-    }
-
-    public void LoadMainMenu()
-    {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
-        SceneManager.LoadScene("MainMenu");
-    }
+    public void LoadMainMenu() => Controller?.LoadMainMenu();
 }

@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Collections;
 
@@ -13,18 +13,27 @@ public class PauseMenu : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Escape))
+        if (!Input.GetKeyDown(KeyCode.Escape)) return;
+
+        if (confirmMenuUI != null && confirmMenuUI.activeSelf)
         {
-            if (confirmMenuUI != null && confirmMenuUI.activeSelf) HideConfirmMenu();
-            else if (settingsMenuUI != null && settingsMenuUI.activeSelf) CloseSettingsMenu();
-            else if (isPaused) Resume();
-            else Pause();
+            HideConfirmMenu();
+            return;
         }
+
+        if (settingsMenuUI != null && settingsMenuUI.activeSelf)
+        {
+            CloseSettingsMenu();
+            return;
+        }
+
+        if (isPaused) Resume();
+        else Pause();
     }
 
     public void Pause()
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        PlayClick();
         pauseMenuUI.SetActive(true);
         Time.timeScale = 0f;
         isPaused = true;
@@ -32,7 +41,7 @@ public class PauseMenu : MonoBehaviour
 
     public void Resume()
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        PlayClick();
         pauseMenuUI.SetActive(false);
         if (confirmMenuUI != null) confirmMenuUI.SetActive(false);
         if (settingsMenuUI != null) settingsMenuUI.SetActive(false); 
@@ -42,28 +51,28 @@ public class PauseMenu : MonoBehaviour
 
     public void OpenSettingsMenu()
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        PlayClick();
         pauseMenuUI.SetActive(false);
         settingsMenuUI.SetActive(true);
     }
 
     public void CloseSettingsMenu()
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        PlayClick();
         settingsMenuUI.SetActive(false);
         pauseMenuUI.SetActive(true);
     }
 
     public void ShowConfirmMenu()
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        PlayClick();
         pauseMenuUI.SetActive(false);
         confirmMenuUI.SetActive(true);
     }
 
     public void HideConfirmMenu()
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        PlayClick();
         confirmMenuUI.SetActive(false);
         pauseMenuUI.SetActive(true);
     }
@@ -76,8 +85,13 @@ public class PauseMenu : MonoBehaviour
 
     private IEnumerator LoadMainMenuRoutine()
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayTransition();
+        SoundManager.Instance?.PlayTransition();
         yield return new WaitForSeconds(0.4f);
         SceneManager.LoadScene("MainMenu");
+    }
+
+    private static void PlayClick()
+    {
+        SoundManager.Instance?.PlayClick();
     }
 }

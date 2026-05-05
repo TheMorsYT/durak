@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+using Durak.Architecture.Singleplayer.Core;
+using UnityEngine;
 using UnityEngine.EventSystems;
 
 public class TransferZoneHandler : MonoBehaviour, IDropHandler
@@ -10,14 +11,40 @@ public class TransferZoneHandler : MonoBehaviour, IDropHandler
 
     public void OnDrop(PointerEventData eventData)
     {
-        Card draggedCard = eventData.pointerDrag.GetComponent<Card>();
-        CardMovement cardMovement = eventData.pointerDrag.GetComponent<CardMovement>();
-
-        if (draggedCard != null && cardMovement != null)
+        if (eventData?.pointerDrag == null)
         {
-            cardMovement.defaultParent = GameManager.Instance.tableArea;
+            return;
+        }
 
-            GameManager.Instance.TransferAttack(draggedCard);
+        MatchControllerSP controller = MatchControllerSP.Instance;
+        if (controller == null || controller.IsDealInProgress || controller.IsGameOver)
+        {
+            return;
+        }
+
+        Card card = eventData.pointerDrag.GetComponent<Card>();
+        CardMovement movement = eventData.pointerDrag.GetComponent<CardMovement>();
+        if (card == null || movement == null)
+        {
+            return;
+        }
+
+        bool draggedFromLocalHand = movement.IsDraggingCard && movement.DragStartParent == controller.PlayerHand;
+        bool inLocalHandNow = controller.IsInLocalPlayerHand(card.transform);
+        if ((!inLocalHandNow && !draggedFromLocalHand) ||
+            controller.IsCardOnTable(card.transform) ||
+            !controller.CanLocalPlayerTransfer(card))
+        {
+            movement.RejectLocally();
+            return;
+        }
+
+        movement.defaultParent = controller.TableArea;
+        movement.MarkPendingAction();
+        bool accepted = controller.RequestTransferFromPlayer(card);
+        if (!accepted)
+        {
+            movement.RejectLocally();
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Collections;
 
@@ -39,45 +39,45 @@ public class MainMenuManager : MonoBehaviour
 
     public void OpenSettingsWindow()
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        PlayClick();
         settingsPanel.SetActive(true);
     }
 
     public void CloseSettingsWindow()
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        PlayClick();
         settingsPanel.SetActive(false);
     }
 
     public void OpenAboutWindow()
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        PlayClick();
         aboutPanel.SetActive(true);
     }
 
     public void CloseAboutWindow()
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        PlayClick();
         aboutPanel.SetActive(false);
     }
 
     public void OnPlayButtonClicked()
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        PlayClick();
         mainMenuPanel.SetActive(false);
         modeSelectionPanel.SetActive(true);
     }
 
     public void OnBackToMainMenuFromMode()
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        PlayClick();
         modeSelectionPanel.SetActive(false);
         mainMenuPanel.SetActive(true);
     }
 
     public void SelectGameMode(int mode)
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        PlayClick();
         selectedGameMode = mode;
         modeSelectionPanel.SetActive(false);
         cardSelectionPanel.SetActive(true);
@@ -85,14 +85,14 @@ public class MainMenuManager : MonoBehaviour
 
     public void OnBackToModeFromCardSelection()
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        PlayClick();
         cardSelectionPanel.SetActive(false);
         modeSelectionPanel.SetActive(true);
     }
 
     public void SelectDeckSize(int deckSize)
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        PlayClick();
         selectedDeckSize = deckSize;
         cardSelectionPanel.SetActive(false);
         difficultySelectionPanel.SetActive(true);
@@ -100,14 +100,14 @@ public class MainMenuManager : MonoBehaviour
 
     public void OnBackToCardSelectionFromDifficulty()
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        PlayClick();
         difficultySelectionPanel.SetActive(false);
         cardSelectionPanel.SetActive(true);
     }
 
     public void SelectDifficulty(int difficultyLevel)
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        PlayClick();
 
         PlayerPrefs.SetInt("GameMode", selectedGameMode);
         PlayerPrefs.SetInt("DeckSize", selectedDeckSize);
@@ -119,19 +119,19 @@ public class MainMenuManager : MonoBehaviour
 
     public void ShowConfirmExit()
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        PlayClick();
         confirmExitPanel.SetActive(true);
     }
 
     public void HideConfirmExit()
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        PlayClick();
         confirmExitPanel.SetActive(false);
     }
 
     public void ConfirmQuit()
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayClick();
+        PlayClick();
         Application.Quit();
     }
 
@@ -142,8 +142,13 @@ public class MainMenuManager : MonoBehaviour
 
     private IEnumerator LoadGameRoutine()
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayTransition();
+        SoundManager.Instance?.PlayTransition();
         yield return new WaitForSeconds(0.4f);
         SceneManager.LoadScene("game");
+    }
+
+    private static void PlayClick()
+    {
+        SoundManager.Instance?.PlayClick();
     }
 }

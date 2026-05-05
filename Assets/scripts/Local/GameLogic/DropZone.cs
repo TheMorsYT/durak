@@ -1,122 +1,91 @@
-﻿using UnityEngine;
+using Durak.Architecture.Singleplayer.Core;
+using UnityEngine;
 using UnityEngine.EventSystems;
-using System.Linq;
-using System.Collections.Generic;
 
 public class DropZone : MonoBehaviour, IDropHandler
 {
-    private GameManager gm;
-
-    void Start()
+    private enum DropRole
     {
-        gm = GameManager.Instance;
-        if (gm == null) gm = Object.FindFirstObjectByType<GameManager>();
+        Defender,
+        Attacker
     }
 
     public void OnDrop(PointerEventData eventData)
     {
-        if (eventData.pointerEnter != null && eventData.pointerEnter.name == "TransferZone")
+        if (!TryBuildContext(eventData, out MatchControllerSP controller, out CardMovement movement, out Card card, out DropRole role))
         {
             return;
         }
 
-        CardMovement cardMove = eventData.pointerDrag.GetComponent<CardMovement>();
-        Card cardData = eventData.pointerDrag.GetComponent<Card>();
+        bool accepted = role == DropRole.Defender
+            ? TryDefend(controller, movement, card)
+            : TryAttackOrToss(controller, movement, card);
 
-        if (cardMove != null && cardData != null)
+        if (!accepted)
         {
-            if (gm.isPlayerAttacker)
-            {
-                int maxCards = gm.GetMaxAttackCards();
-                bool canToss = false;
-
-                var cardsOnTableTransforms = gm.GetTableAttackCards();
-                int attackCardsCount = cardsOnTableTransforms.Count;
-
-                if (attackCardsCount == 0)
-                {
-                    canToss = true;
-                }
-                else if (attackCardsCount < maxCards)
-                {
-                    var allCardsOnTable = gm.tableArea.GetComponentsInChildren<Card>();
-                    var tableRanks = allCardsOnTable.Select(c => c.value).Distinct();
-
-                    if (tableRanks.Contains(cardData.value))
-                    {
-                        canToss = true;
-                    }
-                }
-
-                if (canToss)
-                {
-                    AcceptAttackCard(cardMove);
-                    gm.CheckWinCondition();
-                }
-            }
-            else
-            {
-                if (gm.isPlayerAttacker) return;
-
-                foreach (Transform tableCard in gm.GetTableAttackCards())
-                {
-                    Card botCardData = tableCard.GetComponent<Card>();
-
-                    if (tableCard.childCount == 0)
-                    {
-                        if (CanPlayerBeat(cardData, botCardData))
-                        {
-                            if (SoundManager.Instance != null) SoundManager.Instance.PlayCardToTable();
-
-                            cardMove.defaultParent = tableCard;
-                            cardMove.transform.SetParent(tableCard, false);
-                            cardMove.transform.localPosition = new Vector3(30, -30, 0);
-                            cardMove.transform.SetAsLastSibling();
-
-                            CanvasGroup cg = cardMove.GetComponent<CanvasGroup>();
-                            if (cg != null) cg.blocksRaycasts = false;
-
-                            gm.CheckWinCondition();
-
-                            EnemyAI bot = gm.GetComponent<EnemyAI>();
-                            if (bot != null && !gm.isBotTaking) bot.TryToAttack();
-
-                            break;
-                        }
-                    }
-                }
-            }
+            movement.RejectLocally();
         }
     }
 
-    bool CanPlayerBeat(Card playerCard, Card botCard)
+    private static bool TryBuildContext(
+        PointerEventData eventData,
+        out MatchControllerSP controller,
+        out CardMovement movement,
+        out Card card,
+        out DropRole role)
     {
-        if (playerCard.value == Card.CardValue.Joker)
+        controller = MatchControllerSP.Instance;
+        movement = null;
+        card = null;
+        role = DropRole.Attacker;
+
+        if (eventData?.pointerDrag == null || controller == null || controller.IsDealInProgress || controller.IsGameOver)
         {
-            bool isTrumpRed = (gm.trumpSuit == Card.CardSuit.Hearts || gm.trumpSuit == Card.CardSuit.Diamonds);
-            bool pRed = (playerCard.suit == Card.CardSuit.Hearts || playerCard.suit == Card.CardSuit.Diamonds);
-            bool bRed = (botCard.suit == Card.CardSuit.Hearts || botCard.suit == Card.CardSuit.Diamonds);
-            if (pRed) return isTrumpRed || bRed;
-            return !isTrumpRed || !bRed;
+            return false;
         }
 
-        if (botCard.value == Card.CardValue.Joker) return false;
-        if (playerCard.suit == gm.trumpSuit && botCard.suit != gm.trumpSuit) return true;
-        if (playerCard.suit == botCard.suit) return playerCard.value > botCard.value;
-        return false;
+        movement = eventData.pointerDrag.GetComponent<CardMovement>();
+        card = eventData.pointerDrag.GetComponent<Card>();
+        if (movement == null || card == null)
+        {
+            return false;
+        }
+
+        bool draggedFromLocalHand = movement.IsDraggingCard && movement.DragStartParent == controller.PlayerHand;
+        bool inLocalHandNow = controller.IsInLocalPlayerHand(card.transform);
+        if ((!inLocalHandNow && !draggedFromLocalHand) || controller.IsCardOnTable(card.transform))
+        {
+            return false;
+        }
+
+        role = controller.Context != null && controller.Context.Turn.DefenderId == MatchControllerSP.LocalPlayerId
+            ? DropRole.Defender
+            : DropRole.Attacker;
+
+        return true;
     }
 
-    void AcceptAttackCard(CardMovement cardMove)
+    private static bool TryDefend(MatchControllerSP controller, CardMovement movement, Card defendingCard)
     {
-        if (SoundManager.Instance != null) SoundManager.Instance.PlayCardToTable();
-        cardMove.defaultParent = this.transform;
-        cardMove.transform.SetParent(this.transform, false);
-        cardMove.transform.SetAsLastSibling();
+        if (!controller.TryFindLocalDefenseTarget(defendingCard, out Card targetCard) || targetCard == null)
+        {
+            return false;
+        }
 
-        CanvasGroup cg = cardMove.GetComponent<CanvasGroup>();
-        if (cg != null) cg.blocksRaycasts = false;
+        movement.defaultParent = targetCard.transform;
+        movement.MarkPendingAction();
+        return controller.RequestDefendCardFromPlayer(defendingCard, targetCard);
+    }
 
-        EnemyAI bot = gm.GetComponent<EnemyAI>();
-        if (bot != null && !gm.isBotTaking) bot.TryToDefend();
+    private static bool TryAttackOrToss(MatchControllerSP controller, CardMovement movement, Card card)
+    {
+        if (!controller.CanLocalPlayerPlayCard(card))
+        {
+            return false;
+        }
+
+        movement.defaultParent = controller.TableArea;
+        movement.MarkPendingAction();
+        return controller.RequestPlayCardFromPlayer(card);
     }
 }
