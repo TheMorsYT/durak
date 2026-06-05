@@ -114,16 +114,22 @@ public sealed class DiscordRichPresenceManager : MonoBehaviour
             return;
         }
 
+
         try
         {
             client = new DiscordRpcClient(applicationId.Trim());
+            
+
+            client.Logger = new DiscordRPC.Logging.NullLogger();
+            
             client.Initialize();
             startedAtUtc = DateTime.UtcNow;
-            Log("Discord RPC initialized.");
+            Log($"Discord RPC initialized successfully on {Application.platform}.");
         }
         catch (Exception exception)
         {
-            Log($"Discord RPC init failed: {exception.Message}");
+
+            Log($"Discord RPC init failed (this is normal if Discord is not running): {exception.Message}");
             client = null;
         }
 #else
@@ -172,11 +178,6 @@ public sealed class DiscordRichPresenceManager : MonoBehaviour
             return isUkr ? $"Одиночна гра v{version} | {playingAs}" : $"Singleplayer v{version} | {playingAs}";
         }
 
-        if (string.Equals(sceneName, "MultiplayerGame", StringComparison.OrdinalIgnoreCase))
-        {
-            return isUkr ? $"Мультиплеєр v{version} | {playingAs}" : $"Multiplayer v{version} | {playingAs}";
-        }
-
         return isUkr ? $"Гра Durak v{version} | {playingAs}" : $"Durak v{version} | {playingAs}";
     }
 
@@ -187,11 +188,6 @@ public sealed class DiscordRichPresenceManager : MonoBehaviour
         if (string.Equals(sceneName, "MainMenu", StringComparison.OrdinalIgnoreCase))
         {
             return isUkr ? "У головному меню" : "In Main Menu";
-        }
-
-        if (string.Equals(sceneName, "MultiplayerGame", StringComparison.OrdinalIgnoreCase))
-        {
-            return isUkr ? "У мультиплеєрній грі" : "In Multiplayer Match";
         }
 
         if (!string.Equals(sceneName, "game", StringComparison.OrdinalIgnoreCase))

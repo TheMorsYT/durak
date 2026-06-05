@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Durak.Architecture.Singleplayer.Core;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -10,6 +11,8 @@ public class DropZone : MonoBehaviour, IDropHandler
         Attacker
     }
 
+    [HideInInspector] public Card targetAttackCard;
+
     public void OnDrop(PointerEventData eventData)
     {
         if (!TryBuildContext(eventData, out MatchControllerSP controller, out CardMovement movement, out Card card, out DropRole role))
@@ -18,7 +21,7 @@ public class DropZone : MonoBehaviour, IDropHandler
         }
 
         bool accepted = role == DropRole.Defender
-            ? TryDefend(controller, movement, card)
+            ? TryDefend(controller, movement, card, eventData)
             : TryAttackOrToss(controller, movement, card);
 
         if (!accepted)
@@ -65,16 +68,114 @@ public class DropZone : MonoBehaviour, IDropHandler
         return true;
     }
 
-    private static bool TryDefend(MatchControllerSP controller, CardMovement movement, Card defendingCard)
+    private bool TryDefend(MatchControllerSP controller, CardMovement movement, Card defendingCard, PointerEventData eventData)
     {
-        if (!controller.TryFindLocalDefenseTarget(defendingCard, out Card targetCard) || targetCard == null)
+        Card targetCard = null;
+
+        if (targetAttackCard != null)
         {
-            return false;
+            targetCard = targetAttackCard;
+        }
+        else
+        {
+            if (!TryFindAttackCardAtDropPosition(controller, eventData, out targetCard) || targetCard == null)
+            {
+                return false;
+            }
         }
 
         movement.defaultParent = targetCard.transform;
         movement.MarkPendingAction();
+        
         return controller.RequestDefendCardFromPlayer(defendingCard, targetCard);
+    }
+
+    private static bool TryFindAttackCardAtDropPosition(MatchControllerSP controller, PointerEventData eventData, out Card attackCard)
+    {
+        attackCard = null;
+        if (controller == null || eventData == null)
+        {
+            return false;
+        }
+
+        List<RaycastResult> results = new List<RaycastResult>();
+        EventSystem.current?.RaycastAll(eventData, results);
+        for (int i = 0; i < results.Count; i++)
+        {
+            if (TryResolveTableAttackCard(controller, results[i].gameObject, out attackCard))
+            {
+                return true;
+            }
+        }
+
+        if (eventData.hovered != null)
+        {
+            for (int i = 0; i < eventData.hovered.Count; i++)
+            {
+                if (TryResolveTableAttackCard(controller, eventData.hovered[i], out attackCard))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return TryFindAttackCardByRect(controller, eventData, out attackCard);
+    }
+
+    private static bool TryResolveTableAttackCard(MatchControllerSP controller, GameObject hitObject, out Card attackCard)
+    {
+        attackCard = null;
+        if (controller == null || hitObject == null)
+        {
+            return false;
+        }
+
+        Card card = hitObject.GetComponentInParent<Card>();
+        if (card == null || card.transform.parent != controller.TableArea || controller.IsAttackRootDefended(card.transform))
+        {
+            return false;
+        }
+
+        attackCard = card;
+        return true;
+    }
+
+    private static bool TryFindAttackCardByRect(MatchControllerSP controller, PointerEventData eventData, out Card attackCard)
+    {
+        attackCard = null;
+        List<Transform> roots = controller.GetTableAttackCards();
+        Camera camera = eventData.pressEventCamera ?? eventData.enterEventCamera;
+        int bestSibling = int.MinValue;
+
+        for (int i = 0; i < roots.Count; i++)
+        {
+            Transform root = roots[i];
+            if (root == null || controller.IsAttackRootDefended(root))
+            {
+                continue;
+            }
+
+            RectTransform rectTransform = root as RectTransform;
+            Card card = root.GetComponent<Card>();
+            if (rectTransform == null || card == null)
+            {
+                continue;
+            }
+
+            if (!RectTransformUtility.RectangleContainsScreenPoint(rectTransform, eventData.position, camera))
+            {
+                continue;
+            }
+
+            int sibling = root.GetSiblingIndex();
+            if (attackCard == null || sibling > bestSibling)
+            {
+                attackCard = card;
+                bestSibling = sibling;
+            }
+        }
+
+        return attackCard != null;
     }
 
     private static bool TryAttackOrToss(MatchControllerSP controller, CardMovement movement, Card card)

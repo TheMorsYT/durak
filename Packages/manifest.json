@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "com.discord.partnersdk": "file:../PackagesLocal/com.discord.partnersdk",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.2d.tilemap": "1.0.0",
     "com.unity.ai.navigation": "2.0.10",
@@ -9,8 +8,10 @@
     "com.unity.multiplayer.center.quickstart": "1.1.1",
     "com.unity.multiplayer.tools": "2.2.8",
     "com.unity.netcode.gameobjects": "2.9.2",
+    "com.unity.sdk.linux-x86_64": "1.1.0",
     "com.unity.services.multiplayer": "2.1.3",
     "com.unity.timeline": "1.8.10",
+    "com.unity.toolchain.win-x86_64-linux": "1.1.0",
     "com.unity.ugui": "2.0.0",
     "com.unity.modules.accessibility": "1.0.0",
     "com.unity.modules.adaptiveperformance": "1.0.0",

@@ -33,6 +33,7 @@ namespace Durak.Architecture.Singleplayer.Core
         [Header("Gameplay UI")]
         [SerializeField] private GameObject bitoVisual = null;
         [SerializeField] private GameObject bitoButton = null;
+        [SerializeField] private GameObject passButton = null;
         [SerializeField] private GameObject takeButton = null;
         [SerializeField] private GameObject transferZone = null;
         [SerializeField] private Image trumpCardUI = null;
@@ -204,6 +205,11 @@ namespace Durak.Architecture.Singleplayer.Core
             return RequestVoteBito(LocalPlayerId);
         }
 
+        public bool RequestPassFromPlayer()
+        {
+            return RequestPass(LocalPlayerId);
+        }
+
         public bool RequestPlayCardFromBot(Card card)
         {
             return RequestPlayCard(BotPlayerId, card);
@@ -227,6 +233,11 @@ namespace Durak.Architecture.Singleplayer.Core
         public bool RequestVoteBitoFromBot()
         {
             return RequestVoteBito(BotPlayerId);
+        }
+
+        public bool RequestPassFromBot()
+        {
+            return RequestPass(BotPlayerId);
         }
 
         public void RestartGame()
@@ -307,6 +318,13 @@ namespace Durak.Architecture.Singleplayer.Core
         {
             bool result = CurrentActionHandler != null && CurrentActionHandler.HandleVoteBito(senderId);
             LogDebug($"RequestBito sender={senderId}, phase={GetCurrentPhase()}, result={result}");
+            return result;
+        }
+
+        private bool RequestPass(ulong senderId)
+        {
+            bool result = CurrentActionHandler != null && CurrentActionHandler.HandlePass(senderId);
+            LogDebug($"RequestPass sender={senderId}, phase={GetCurrentPhase()}, result={result}");
             return result;
         }
 

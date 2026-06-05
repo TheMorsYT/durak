@@ -6,6 +6,7 @@ using UnityEngine;
 
 public class LobbyManager : NetworkBehaviour
 {
+    private const string MultiplayerVersion = "1.0.0";
     public Transform playerListContainer;
     public GameObject playerPrefab;
 
@@ -27,7 +28,7 @@ public class LobbyManager : NetworkBehaviour
             NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
             NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
 
-            lobbyVersion.Value = new FixedString32Bytes(RelayManager.MultiplayerVersion);
+            lobbyVersion.Value = new FixedString32Bytes(MultiplayerVersion);
             submittedNicknames[NetworkManager.Singleton.LocalClientId] = PlayerProfileStorage.GetNickname();
 
             UpdateRoster();
@@ -137,20 +138,15 @@ public class LobbyManager : NetworkBehaviour
             return;
         }
 
-        if (serverVersion.Equals(RelayManager.MultiplayerVersion))
+        if (serverVersion.Equals(MultiplayerVersion))
         {
             return;
         }
 
         versionMismatchHandled = true;
 
-        MainMenuUI mainMenuUI = Object.FindFirstObjectByType<MainMenuUI>();
-        if (mainMenuUI != null)
-        {
-            mainMenuUI.HandleLobbyVersionMismatch();
-            return;
-        }
 
+        Debug.LogWarning($"[LobbyManager] Version mismatch! Server: {serverVersion}, Client: {MultiplayerVersion}");
         NetworkManager.Singleton?.Shutdown();
     }
 

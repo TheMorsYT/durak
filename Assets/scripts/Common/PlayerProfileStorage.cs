@@ -13,24 +13,15 @@ public readonly struct PlayerStatsSnapshot
     public readonly int SingleWins;
     public readonly int SingleLosses;
     public readonly int SingleDraws;
-    public readonly int MultiWins;
-    public readonly int MultiLosses;
-    public readonly int MultiDraws;
 
     public PlayerStatsSnapshot(
         int singleWins,
         int singleLosses,
-        int singleDraws,
-        int multiWins,
-        int multiLosses,
-        int multiDraws)
+        int singleDraws)
     {
         SingleWins = singleWins;
         SingleLosses = singleLosses;
         SingleDraws = singleDraws;
-        MultiWins = multiWins;
-        MultiLosses = multiLosses;
-        MultiDraws = multiDraws;
     }
 }
 
@@ -42,10 +33,6 @@ public static class PlayerProfileStorage
     private const string KeySingleWins = "Stats.Single.Wins";
     private const string KeySingleLosses = "Stats.Single.Losses";
     private const string KeySingleDraws = "Stats.Single.Draws";
-
-    private const string KeyMultiWins = "Stats.Multi.Wins";
-    private const string KeyMultiLosses = "Stats.Multi.Losses";
-    private const string KeyMultiDraws = "Stats.Multi.Draws";
 
     public const int MaxNicknameLength = 18;
     private const string DefaultNickname = "Player";
@@ -95,20 +82,12 @@ public static class PlayerProfileStorage
         return new PlayerStatsSnapshot(
             PlayerPrefs.GetInt(KeySingleWins, 0),
             PlayerPrefs.GetInt(KeySingleLosses, 0),
-            PlayerPrefs.GetInt(KeySingleDraws, 0),
-            PlayerPrefs.GetInt(KeyMultiWins, 0),
-            PlayerPrefs.GetInt(KeyMultiLosses, 0),
-            PlayerPrefs.GetInt(KeyMultiDraws, 0));
+            PlayerPrefs.GetInt(KeySingleDraws, 0));
     }
 
     public static void RecordSingleResult(MatchResultType result)
     {
         IncrementResultCounters(result, KeySingleWins, KeySingleLosses, KeySingleDraws);
-    }
-
-    public static void RecordMultiResult(MatchResultType result)
-    {
-        IncrementResultCounters(result, KeyMultiWins, KeyMultiLosses, KeyMultiDraws);
     }
 
     public static string BuildSingleStatsBilingual()
@@ -118,15 +97,6 @@ public static class PlayerProfileStorage
                $"Wins / Перемог: {stats.SingleWins}\n" +
                $"Losses / Поразок: {stats.SingleLosses}\n" +
                $"Draws / Нічиїх: {stats.SingleDraws}";
-    }
-
-    public static string BuildMultiStatsBilingual()
-    {
-        PlayerStatsSnapshot stats = GetStatsSnapshot();
-        return $"Multiplayer / Мультиплеєр\n" +
-               $"Wins / Перемог: {stats.MultiWins}\n" +
-               $"Losses / Поразок: {stats.MultiLosses}\n" +
-               $"Draws / Нічиїх: {stats.MultiDraws}";
     }
 
     private static void IncrementResultCounters(

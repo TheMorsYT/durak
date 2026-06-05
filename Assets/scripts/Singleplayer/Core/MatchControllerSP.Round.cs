@@ -84,6 +84,15 @@ namespace Durak.Architecture.Singleplayer.Core
                 return false;
             }
 
+
+
+
+            if (LocalState.AttackCardsCount > 0 || LocalState.DefendedCardsCount > 0)
+            {
+                LogDebug($"TryFinalizeGameOver: Cards still on table (attack={LocalState.AttackCardsCount}, defended={LocalState.DefendedCardsCount}). Waiting for resolution.");
+                return false;
+            }
+
             int playerCards = GetSeatCardCount(LocalPlayerId);
             int botCards = GetSeatCardCount(BotPlayerId);
             MatchResultType? outcome = ResolveOutcome(playerCards, botCards);
@@ -104,6 +113,7 @@ namespace Durak.Architecture.Singleplayer.Core
             }
 
             ShowGameOver(outcome.Value);
+            LogDebug($"Game Over: outcome={outcome.Value}, playerCards={playerCards}, botCards={botCards}");
             return true;
         }
 
@@ -124,7 +134,7 @@ namespace Durak.Architecture.Singleplayer.Core
             for (int i = 0; i < roots.Count; i++)
             {
                 Transform root = roots[i];
-                if (root.childCount > 0)
+                if (IsAttackRootDefended(root))
                 {
                     continue;
                 }

@@ -1018,7 +1018,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 960.2, y: 1022}
+  m_AnchoredPosition: {x: 960, y: 973}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &368254974
@@ -2195,6 +2195,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   enableDebugLogs: 1
   thinkDelaySecondsRange: {x: 1.5, y: 2.5}
+  postActionDelaySecondsRange: {x: 0.9, y: 1.6}
 --- !u!114 &662614318
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2243,6 +2244,7 @@ MonoBehaviour:
   discardPile: {fileID: 1994655684}
   bitoVisual: {fileID: 1994655683}
   bitoButton: {fileID: 1528347396}
+  passButton: {fileID: 1637084427}
   takeButton: {fileID: 1821835913}
   transferZone: {fileID: 1561168279}
   trumpCardUI: {fileID: 1336555047}
@@ -2353,6 +2355,7 @@ MonoBehaviour:
   - {fileID: 1655484544}
   takeButton: {fileID: 1821835913}
   bitoButton: {fileID: 1528347396}
+  passButton: {fileID: 1637084427}
   transferZone: {fileID: 1561168279}
   deckCardsText: {fileID: 655312058}
 --- !u!114 &662614321
@@ -2379,6 +2382,7 @@ MonoBehaviour:
   discardPile: {fileID: 1994655684}
   bitoVisual: {fileID: 1994655683}
   bitoButton: {fileID: 1528347396}
+  passButton: {fileID: 1637084427}
   takeButton: {fileID: 1821835913}
   transferZone: {fileID: 1561168279}
   trumpCardUI: {fileID: 1336555047}
@@ -2937,7 +2941,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -334}
+  m_AnchoredPosition: {x: -0.000020504, y: -313}
   m_SizeDelta: {x: 1000, y: 190}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &842567332
@@ -4510,7 +4514,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 334}
+  m_AnchoredPosition: {x: 0, y: 280.00003}
   m_SizeDelta: {x: 1000, y: 190}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1347259958
@@ -4763,6 +4767,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 82cc92d2c6b408047a687874046d5e3d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DropZone
+  targetAttackCard: {fileID: 0}
 --- !u!1 &1453031451
 GameObject:
   m_ObjectHideFlags: 0
@@ -4856,7 +4861,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1528347397
 RectTransform:
   m_ObjectHideFlags: 0
@@ -4874,7 +4879,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -528, y: -198}
+  m_AnchoredPosition: {x: -624, y: -161}
   m_SizeDelta: {x: 160, y: 60}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1528347398
@@ -5639,7 +5644,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -528, y: -198}
+  m_AnchoredPosition: {x: -583, y: -175}
   m_SizeDelta: {x: 160, y: 60}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1637084429
@@ -6186,7 +6191,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1821835914
 RectTransform:
   m_ObjectHideFlags: 0
@@ -6204,7 +6209,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 553, y: -200}
+  m_AnchoredPosition: {x: 668, y: -161}
   m_SizeDelta: {x: 235, y: 60}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1821835915
@@ -6660,7 +6665,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -477}
+  m_AnchoredPosition: {x: 0, y: -480.4}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1938598948

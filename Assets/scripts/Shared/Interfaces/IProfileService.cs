@@ -7,6 +7,5 @@ namespace Durak.Architecture.Shared.Interfaces
         void SaveLocalProfile(string nickname, int avatarIndex);
         PlayerStatsSnapshot GetStatsSnapshot();
         string BuildSingleStatsText(bool useUkrainian);
-        string BuildMultiplayerStatsText(bool useUkrainian);
     }
 }

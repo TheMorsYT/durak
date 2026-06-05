@@ -47,9 +47,11 @@ namespace Durak.Architecture.Singleplayer.Core
             deckArea ??= facade.deckArea;
             tableArea ??= facade.tableArea;
             discardPile ??= facade.discardPile;
+            NormalizeBoardAreaScale();
 
             bitoVisual ??= facade.bitoVisual;
             bitoButton ??= facade.bitoButton;
+            passButton ??= facade.passButton;
             takeButton ??= facade.takeButton;
             transferZone ??= facade.transferZone;
             trumpCardUI ??= facade.trumpCardUI;
@@ -71,6 +73,21 @@ namespace Durak.Architecture.Singleplayer.Core
             {
                 LocalState.HandsByClientId[LocalPlayerId] = playerHand;
                 LocalState.HandsByClientId[BotPlayerId] = enemyHand;
+            }
+        }
+
+        private void NormalizeBoardAreaScale()
+        {
+            NormalizeScale(playerHand);
+            NormalizeScale(enemyHand);
+            NormalizeScale(tableArea);
+        }
+
+        private static void NormalizeScale(Transform target)
+        {
+            if (target != null)
+            {
+                target.localScale = Vector3.one;
             }
         }
 

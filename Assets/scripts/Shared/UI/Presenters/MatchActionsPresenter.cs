@@ -8,6 +8,7 @@ namespace Durak.Architecture.Shared.UI.Presenters
     {
         private readonly GameObject takeButton;
         private readonly GameObject bitoButton;
+        private readonly GameObject passButton;
         private readonly GameObject transferZone;
         private readonly bool allowFollowUpBito;
 
@@ -19,11 +20,13 @@ namespace Durak.Architecture.Shared.UI.Presenters
         public MatchActionsPresenter(
             GameObject takeButton,
             GameObject bitoButton,
+            GameObject passButton,
             GameObject transferZone,
             bool allowFollowUpBito = true)
         {
             this.takeButton = takeButton;
             this.bitoButton = bitoButton;
+            this.passButton = passButton;
             this.transferZone = transferZone;
             this.allowFollowUpBito = allowFollowUpBito;
         }
@@ -60,45 +63,44 @@ namespace Durak.Architecture.Shared.UI.Presenters
                 return;
             }
 
-            bool amAttacker = localClientId == context.Turn.AttackerId;
-            bool amDefender = localClientId == context.Turn.DefenderId;
+
+            bool amAttacker = (localClientId != MatchDefaults.InvalidClientId) && 
+                              (localClientId == context.Turn.AttackerId);
+            bool amDefender = (localClientId != MatchDefaults.InvalidClientId) && 
+                              (localClientId == context.Turn.DefenderId);
+            
             bool allDefended = context.Table.AllCardsDefended;
-            bool inTakePhase = context.Phase == MatchPhase.FollowUpThrowIn || context.Turn.IsDefenderTaking;
-            bool canTakeWindow = hasCardsOnTable && !context.Turn.IsDefenderTaking;
-            bool defendingWindow = canTakeWindow && !allDefended;
-            bool canVoteAsThrower =
-                localClientId != MatchDefaults.InvalidClientId &&
-                !amDefender &&
-                !localHasVotedBito;
+            bool defenderTaking = context.Turn.IsDefenderTaking;
+            bool inFollowUpTossPhase = context.Phase == MatchPhase.FollowUpThrowIn || defenderTaking;
 
             bool showTake = false;
             bool showBito = false;
+            bool showPass = false;
             bool showTransfer = false;
 
-            if (inTakePhase)
+            if (inFollowUpTossPhase)
             {
                 showTake = false;
                 showTransfer = false;
-                showBito = allowFollowUpBito && hasCardsOnTable && canVoteAsThrower;
+                showBito = false;
+                showPass = allowFollowUpBito && hasCardsOnTable && amAttacker && !localHasVotedBito;
             }
             else if (context.Phase == MatchPhase.Defending)
             {
-                showTake = amDefender && canTakeWindow;
-                showTransfer = amDefender && defendingWindow && canTransferNow;
-                showBito = hasCardsOnTable && allDefended && canVoteAsThrower;
+                showTake = amDefender && hasCardsOnTable && !allDefended;
+                showTransfer = amDefender && !allDefended && canTransferNow;
+                showBito = amAttacker && hasCardsOnTable && allDefended && !localHasVotedBito;
             }
             else if (context.Phase == MatchPhase.Attacking)
             {
-                showTake = amDefender && canTakeWindow;
-                showTransfer = amDefender && defendingWindow && canTransferNow;
-
-                bool canPassOpeningAttack = amAttacker && !hasCardsOnTable;
-                bool canVoteBitoAfterDefense = hasCardsOnTable && allDefended && canVoteAsThrower;
-                showBito = canPassOpeningAttack || canVoteBitoAfterDefense;
+                showTake = amDefender && hasCardsOnTable && !allDefended;
+                showTransfer = amDefender && !allDefended && canTransferNow;
+                showBito = amAttacker && hasCardsOnTable && allDefended && !localHasVotedBito;
             }
 
             SetActive(takeButton, showTake);
             SetActive(bitoButton, showBito);
+            SetActive(passButton, showPass);
             SetActive(transferZone, showTransfer);
         }
 
@@ -106,6 +108,7 @@ namespace Durak.Architecture.Shared.UI.Presenters
         {
             SetActive(takeButton, false);
             SetActive(bitoButton, false);
+            SetActive(passButton, false);
             SetActive(transferZone, false);
         }
 

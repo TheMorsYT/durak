@@ -16,11 +16,26 @@ namespace Durak.Architecture.Singleplayer.Core
 
             Transform cardTransform = card.transform;
             cardTransform.SetParent(tableArea, false);
-            cardTransform.localPosition = Vector3.zero;
+            ApplyFixedCardLayout(cardTransform);
+            RectTransform rectTransform = cardTransform as RectTransform;
+            if (rectTransform != null)
+            {
+                rectTransform.anchoredPosition = Vector2.zero;
+            }
+            else
+            {
+                cardTransform.localPosition = Vector3.zero;
+            }
             cardTransform.SetAsLastSibling();
             card.FlipCard(true);
             SetCardInteractable(cardTransform, false);
             UpdateCardDefaultParent(cardTransform, tableArea);
+            
+            if (card.gameObject.GetComponent<AttackCardDropZoneManager>() == null)
+            {
+                card.gameObject.AddComponent<AttackCardDropZoneManager>();
+            }
+            
             SoundManager.Instance?.PlayCardToTable();
         }
 
@@ -33,7 +48,16 @@ namespace Durak.Architecture.Singleplayer.Core
 
             Transform cardTransform = card.transform;
             cardTransform.SetParent(targetRoot, false);
-            cardTransform.localPosition = new Vector3(30f, -30f, 0f);
+            ApplyFixedCardLayout(cardTransform);
+            RectTransform rectTransform = cardTransform as RectTransform;
+            if (rectTransform != null)
+            {
+                rectTransform.anchoredPosition = new Vector2(30f, -30f);
+            }
+            else
+            {
+                cardTransform.localPosition = new Vector3(30f, -30f, 0f);
+            }
             cardTransform.SetAsLastSibling();
             card.FlipCard(true);
             SetCardInteractable(cardTransform, false);
@@ -50,6 +74,34 @@ namespace Durak.Architecture.Singleplayer.Core
 
             (int attack, int defend) = CountTableCards();
             LocalState.SetTable(attack, defend);
+        }
+
+        public bool IsAttackRootDefended(Transform attackRoot)
+        {
+            return TryGetDefenseCard(attackRoot, out _);
+        }
+
+        public bool TryGetDefenseCard(Transform attackRoot, out Card defenseCard)
+        {
+            defenseCard = null;
+            if (attackRoot == null)
+            {
+                return false;
+            }
+
+            for (int child = 0; child < attackRoot.childCount; child++)
+            {
+                Card card = attackRoot.GetChild(child).GetComponent<Card>();
+                if (card == null)
+                {
+                    continue;
+                }
+
+                defenseCard = card;
+                return true;
+            }
+
+            return false;
         }
 
         private (int attackCardsCount, int defendedCardsCount) CountTableCards()
@@ -70,7 +122,7 @@ namespace Durak.Architecture.Singleplayer.Core
                 }
 
                 attack++;
-                if (root.childCount > 0 && root.GetChild(0).GetComponent<Card>() != null)
+                if (IsAttackRootDefended(root))
                 {
                     defend++;
                 }
@@ -235,6 +287,7 @@ namespace Durak.Architecture.Singleplayer.Core
 
             GameObject cardObject = Instantiate(cardPrefab, deckArea);
             cardObject.name = $"{suit}_{value}";
+            ApplyFixedCardLayout(cardObject.transform);
             cardObject.SetActive(false);
 
             Card card = cardObject.GetComponent<Card>();
@@ -259,6 +312,7 @@ namespace Durak.Architecture.Singleplayer.Core
 
             GameObject cardObject = Instantiate(cardPrefab, deckArea);
             cardObject.name = $"Joker_{suit}";
+            ApplyFixedCardLayout(cardObject.transform);
             cardObject.SetActive(false);
 
             Card card = cardObject.GetComponent<Card>();
@@ -310,6 +364,7 @@ namespace Durak.Architecture.Singleplayer.Core
                 return;
             }
 
+            ApplyFixedCardLayout(card.transform);
             bool faceUp = ownerId == LocalPlayerId;
             card.FlipCard(faceUp);
             SetCardInteractable(card.transform, faceUp);
@@ -329,6 +384,39 @@ namespace Durak.Architecture.Singleplayer.Core
             {
                 canvasGroup.blocksRaycasts = interactable;
             }
+        }
+
+        private static void ApplyFixedCardLayout(Transform cardTransform)
+        {
+            if (cardTransform == null)
+            {
+                return;
+            }
+
+            RectTransform rectTransform = cardTransform as RectTransform;
+            if (rectTransform != null)
+            {
+                rectTransform.sizeDelta = Card.FixedSize;
+                rectTransform.localScale = Vector3.one;
+            }
+            else
+            {
+                cardTransform.localScale = Vector3.one;
+            }
+
+            LayoutElement layoutElement = cardTransform.GetComponent<LayoutElement>();
+            if (layoutElement == null)
+            {
+                layoutElement = cardTransform.gameObject.AddComponent<LayoutElement>();
+            }
+
+            layoutElement.minWidth = Card.FixedSize.x;
+            layoutElement.minHeight = Card.FixedSize.y;
+            layoutElement.preferredWidth = Card.FixedSize.x;
+            layoutElement.preferredHeight = Card.FixedSize.y;
+            layoutElement.flexibleWidth = 0f;
+            layoutElement.flexibleHeight = 0f;
+            layoutElement.ignoreLayout = false;
         }
 
         private static void UpdateCardDefaultParent(Transform cardTransform, Transform parent)
@@ -402,6 +490,11 @@ namespace Durak.Architecture.Singleplayer.Core
             if (bitoButton != null)
             {
                 bitoButton.SetActive(false);
+            }
+
+            if (passButton != null)
+            {
+                passButton.SetActive(false);
             }
         }
 

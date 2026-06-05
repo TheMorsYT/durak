@@ -23,6 +23,7 @@ public sealed class GameManager : MonoBehaviour
     [Header("Actions UI")]
     public GameObject bitoVisual;
     public GameObject bitoButton;
+    public GameObject passButton;
     public GameObject takeButton;
     public GameObject transferZone;
     public Image trumpCardUI;
@@ -113,7 +114,7 @@ public sealed class GameManager : MonoBehaviour
 
     public void SendToBito() => Controller?.RequestVoteBitoFromPlayer();
 
-    public void OnPassButtonClicked() => SendToBito();
+    public void OnPassButtonClicked() => Controller?.RequestPassFromPlayer();
 
     public void RestartGame() => Controller?.RestartGame();
 

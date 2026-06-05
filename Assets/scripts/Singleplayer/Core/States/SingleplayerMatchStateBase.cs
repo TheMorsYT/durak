@@ -22,6 +22,7 @@ namespace Durak.Architecture.Singleplayer.Core.States
         public virtual bool HandleTransfer(ulong senderId, Card card) => false;
         public virtual bool HandleTake(ulong senderId) => false;
         public virtual bool HandleVoteBito(ulong senderId) => false;
+        public virtual bool HandlePass(ulong senderId) => false;
         public virtual void HandleTimerExpired() { }
     }
 }

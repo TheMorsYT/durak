@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 1425970000409055969}
   - component: {fileID: 980833890468732416}
   - component: {fileID: 5040597918491507856}
+  - component: {fileID: 8899848136427295215}
   m_Layer: 5
   m_Name: ExampleCard
   m_TagString: Untagged
@@ -138,3 +139,15 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!114 &8899848136427295215
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1533316629146249083}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9208929b5c6439f41826c5191718217c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AttackCardDropZoneManager

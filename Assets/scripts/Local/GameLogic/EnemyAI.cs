@@ -239,7 +239,15 @@ public class EnemyAI : MonoBehaviour
     private bool ExecuteDefendDecision()
     {
         List<Transform> roots = controller.GetTableAttackCards();
-        Transform uncoveredRoot = roots.FirstOrDefault(root => root != null && root.childCount == 0);
+        LogDebug($"Defend decision: found {roots.Count} attack cards on table");
+        
+        foreach (Transform root in roots)
+        {
+            Card card = root?.GetComponent<Card>();
+            LogDebug($"  - Attack card: {DescribeCard(card)}, childCount={root?.childCount ?? -1}");
+        }
+        
+        Transform uncoveredRoot = roots.FirstOrDefault(root => root != null && !controller.IsAttackRootDefended(root));
         if (uncoveredRoot == null)
         {
             LogDebug("Defend decision: no uncovered attack card.");
@@ -254,6 +262,8 @@ public class EnemyAI : MonoBehaviour
         }
 
         List<Card> botHand = controller.GetHandCards(MatchControllerSP.BotPlayerId);
+        LogDebug($"Defend decision: bot has {botHand.Count} cards in hand");
+        
         if (botHand.Count <= 0)
         {
             bool takeNoCards = controller.RequestTakeFromBot();
@@ -273,6 +283,8 @@ public class EnemyAI : MonoBehaviour
         }
 
         List<Card> validDefenseCards = botHand.Where(card => controller.CanCardBeat(card, attackCard)).ToList();
+        LogDebug($"Defend decision: found {validDefenseCards.Count} valid defense cards");
+        
         Card bestDefense = SelectBestDefenseCard(validDefenseCards, attackCard, botHand);
         if (bestDefense != null)
         {
@@ -592,13 +604,12 @@ public class EnemyAI : MonoBehaviour
         for (int i = 0; i < roots.Count; i++)
         {
             Transform attackRoot = roots[i];
-            if (attackRoot == null || attackRoot.childCount <= 0)
+            if (attackRoot == null || !controller.TryGetDefenseCard(attackRoot, out Card defense))
             {
                 continue;
             }
 
             Card attack = attackRoot.GetComponent<Card>();
-            Card defense = attackRoot.GetChild(0).GetComponent<Card>();
             if (attack == null || defense == null)
             {
                 continue;
@@ -641,9 +652,7 @@ public class EnemyAI : MonoBehaviour
             return;
         }
 
-#if DURAK_VERBOSE_LOGS
         Debug.Log($"[EnemyAI] {message}");
-#endif
     }
 
     private string DescribeContext()

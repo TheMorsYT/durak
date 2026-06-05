@@ -28,6 +28,7 @@ namespace Durak.Architecture.Singleplayer.UI
         [Header("Actions")]
         [SerializeField] private GameObject takeButton = null;
         [SerializeField] private GameObject bitoButton = null;
+        [SerializeField] private GameObject passButton = null;
         [SerializeField] private GameObject transferZone = null;
 
         [Header("Deck")]
@@ -142,6 +143,7 @@ namespace Durak.Architecture.Singleplayer.UI
 
                 takeButton ??= facade.takeButton;
                 bitoButton ??= facade.bitoButton;
+                passButton ??= facade.passButton;
                 transferZone ??= facade.transferZone;
                 deckCardsText ??= facade.deckCardsText;
             }
@@ -159,11 +161,14 @@ namespace Durak.Architecture.Singleplayer.UI
         {
             profilesPresenter = new MatchProfilesPresenter(profileObjects, nicknameTexts, avatarImages, hideSeatZeroNickname: false);
             timerPresenter = new MatchTimerPresenter(timerRingsAttack, timerRingsDefend);
-            actionsPresenter = new MatchActionsPresenter(takeButton, bitoButton, transferZone, allowFollowUpBito: true);
+            ResolvePassButton();
+            actionsPresenter = new MatchActionsPresenter(takeButton, bitoButton, passButton, transferZone, allowFollowUpBito: true);
         }
 
         private void BindActionButtons()
         {
+            ResolvePassButton();
+
             Button take = takeButton != null ? takeButton.GetComponent<Button>() : null;
             if (take != null && take.onClick.GetPersistentEventCount() == 0)
             {
@@ -176,6 +181,41 @@ namespace Durak.Architecture.Singleplayer.UI
             {
                 bito.onClick.RemoveListener(OnBitoClicked);
                 bito.onClick.AddListener(OnBitoClicked);
+            }
+
+            Button pass = passButton != null ? passButton.GetComponent<Button>() : null;
+            if (pass != null && pass.onClick.GetPersistentEventCount() == 0)
+            {
+                pass.onClick.RemoveListener(OnPassClicked);
+                pass.onClick.AddListener(OnPassClicked);
+            }
+        }
+
+        private void ResolvePassButton()
+        {
+            if (passButton != null)
+            {
+                return;
+            }
+
+            GameObject found = GameObject.Find("PassButton");
+            if (found != null)
+            {
+                passButton = found;
+                return;
+            }
+
+            GameObject[] objects = Resources.FindObjectsOfTypeAll<GameObject>();
+            for (int i = 0; i < objects.Length; i++)
+            {
+                if (objects[i].name == "PassButton" &&
+                    objects[i].hideFlags == HideFlags.None &&
+                    objects[i].scene.IsValid() &&
+                    objects[i].scene.isLoaded)
+                {
+                    passButton = objects[i];
+                    return;
+                }
             }
         }
 
@@ -264,6 +304,13 @@ namespace Durak.Architecture.Singleplayer.UI
         {
             actionsPresenter?.MarkLocalBitoVote();
             controller?.RequestVoteBitoFromPlayer();
+            RefreshActionAndTimerState();
+        }
+
+        private void OnPassClicked()
+        {
+            actionsPresenter?.MarkLocalBitoVote();
+            controller?.RequestPassFromPlayer();
             RefreshActionAndTimerState();
         }
 

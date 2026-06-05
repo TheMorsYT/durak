@@ -270,7 +270,7 @@ namespace Durak.Architecture.Singleplayer.Core
             }
 
             Transform targetRoot = targetCard.transform;
-            if (targetRoot.childCount > 0 || !CanCardBeat(defendCard, targetCard))
+            if (IsAttackRootDefended(targetRoot) || !CanCardBeat(defendCard, targetCard))
             {
                 return false;
             }
@@ -315,7 +315,7 @@ namespace Durak.Architecture.Singleplayer.Core
             for (int i = 0; i < roots.Count; i++)
             {
                 Card rootCard = roots[i].GetComponent<Card>();
-                if (rootCard == null || roots[i].childCount > 0 || rootCard.value != first.value)
+                if (rootCard == null || IsAttackRootDefended(roots[i]) || rootCard.value != first.value)
                 {
                     return false;
                 }

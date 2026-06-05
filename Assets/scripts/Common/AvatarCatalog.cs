@@ -1,7 +1,10 @@
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using UnityEngine;
+
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 public static class AvatarCatalog
 {
@@ -95,68 +98,63 @@ public static class AvatarCatalog
 
         CachedAvatars.Clear();
 
-        string[] folders =
-        {
-            Path.Combine(Application.dataPath, "images", "Avatars"),
-            @"E:\Kursova\Durak\Assets\images\Avatars"
-        };
-
-        string avatarFolder = folders.FirstOrDefault(Directory.Exists);
-        if (string.IsNullOrEmpty(avatarFolder))
-        {
-            Debug.LogWarning("[AvatarCatalog] Avatar folder not found.");
-            isLoaded = false;
-            return;
-        }
-
-        string[] files = Directory.GetFiles(avatarFolder)
-            .Where(filePath =>
-            {
-                string extension = Path.GetExtension(filePath).ToLowerInvariant();
-                return extension == ".png" || extension == ".jpg" || extension == ".jpeg";
-            })
-            .OrderBy(GetOrder)
-            .ThenBy(Path.GetFileNameWithoutExtension)
-            .ToArray();
-
-        foreach (string filePath in files)
-        {
-            try
-            {
-                byte[] bytes = File.ReadAllBytes(filePath);
-                Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-
-                if (!texture.LoadImage(bytes))
-                {
-                    Object.Destroy(texture);
-                    continue;
-                }
-
-                texture.name = Path.GetFileNameWithoutExtension(filePath);
-                texture.wrapMode = TextureWrapMode.Clamp;
-                texture.filterMode = FilterMode.Bilinear;
-
-                Sprite sprite = Sprite.Create(
-                    texture,
-                    new Rect(0f, 0f, texture.width, texture.height),
-                    new Vector2(0.5f, 0.5f),
-                    100f);
-
-                sprite.name = texture.name;
-                CachedAvatars.Add(sprite);
-            }
-            catch (IOException ioError)
-            {
-                Debug.LogError($"[AvatarCatalog] Failed to read avatar: {filePath}. {ioError.Message}");
-            }
-        }
+#if UNITY_EDITOR
+        LoadFromImagesFolder();
+#else
+        LoadFromResources();
+#endif
 
         isLoaded = true;
     }
 
-    private static int GetOrder(string path)
+#if UNITY_EDITOR
+    private static void LoadFromImagesFolder()
     {
-        string name = Path.GetFileNameWithoutExtension(path);
-        return int.TryParse(name, out int numericOrder) ? numericOrder : int.MaxValue;
+        string[] guids = AssetDatabase.FindAssets("t:Sprite", new[] { "Assets/images/Avatars" });
+        
+        if (guids.Length == 0)
+        {
+            LoadFromResources();
+            return;
+        }
+
+        List<Sprite> loadedSprites = new List<Sprite>();
+        
+        foreach (string guid in guids)
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            
+            if (sprite != null && !sprite.name.Equals("bot", System.StringComparison.OrdinalIgnoreCase))
+            {
+                loadedSprites.Add(sprite);
+            }
+        }
+
+        CachedAvatars.AddRange(loadedSprites
+            .OrderBy(sprite => int.TryParse(sprite.name, out int order) ? order : int.MaxValue)
+            .ThenBy(sprite => sprite.name));
+    }
+#endif
+
+    private static void LoadFromResources()
+    {
+        Sprite[] resourceAvatars = Resources.LoadAll<Sprite>("Avatars");
+        
+        if (resourceAvatars != null && resourceAvatars.Length > 0)
+        {
+            CachedAvatars.AddRange(resourceAvatars
+                .Where(sprite => sprite != null && !sprite.name.StartsWith("bot", System.StringComparison.OrdinalIgnoreCase))
+                .OrderBy(sprite => {
+                    string name = sprite.name;
+                    int underscoreIndex = name.IndexOf('_');
+                    if (underscoreIndex > 0)
+                    {
+                        name = name.Substring(0, underscoreIndex);
+                    }
+                    return int.TryParse(name, out int order) ? order : int.MaxValue;
+                })
+                .ThenBy(sprite => sprite.name));
+        }
     }
 }

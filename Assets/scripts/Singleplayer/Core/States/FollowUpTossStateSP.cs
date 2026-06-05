@@ -40,6 +40,16 @@ namespace Durak.Architecture.Singleplayer.Core.States
 
         public override bool HandleVoteBito(ulong senderId)
         {
+            return HandlePassOrBito(senderId);
+        }
+
+        public override bool HandlePass(ulong senderId)
+        {
+            return HandlePassOrBito(senderId);
+        }
+
+        private bool HandlePassOrBito(ulong senderId)
+        {
             if (!Controller.IsEligibleThrower(senderId))
             {
                 return false;

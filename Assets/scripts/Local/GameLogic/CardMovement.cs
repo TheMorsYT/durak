@@ -48,6 +48,7 @@ public class CardMovement : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
         pendingAction = false;
         localRejectRequested = false;
         isDragging = true;
+        layoutElement = GetComponent<LayoutElement>();
 
         Canvas rootCanvas = originalHand != null
             ? originalHand.GetComponentInParent<Canvas>()?.rootCanvas
@@ -118,6 +119,7 @@ public class CardMovement : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
         {
             Transform targetParent = defaultParent != null ? defaultParent : originalHand;
             transform.SetParent(targetParent, false);
+            ApplyFixedCardLayout(transform);
             ForceRebuild(originalHand);
             ForceRebuild(targetParent);
             return;
@@ -143,6 +145,7 @@ public class CardMovement : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
         }
 
         transform.SetParent(originalHand, false);
+        ApplyFixedCardLayout(transform);
         transform.SetSiblingIndex(newIndex);
         ForceRebuild(originalHand);
 
@@ -198,9 +201,43 @@ public class CardMovement : MonoBehaviour, IBeginDragHandler, IDragHandler, IEnd
         }
 
         transform.SetParent(originalHand, false);
+        ApplyFixedCardLayout(transform);
         int clamped = Mathf.Clamp(siblingIndex, 0, Mathf.Max(0, originalHand.childCount - 1));
         transform.SetSiblingIndex(clamped);
         ForceRebuild(originalHand);
+    }
+
+    private static void ApplyFixedCardLayout(Transform cardTransform)
+    {
+        if (cardTransform == null)
+        {
+            return;
+        }
+
+        RectTransform rectTransform = cardTransform as RectTransform;
+        if (rectTransform != null)
+        {
+            rectTransform.sizeDelta = Card.FixedSize;
+            rectTransform.localScale = Vector3.one;
+        }
+        else
+        {
+            cardTransform.localScale = Vector3.one;
+        }
+
+        LayoutElement fixedLayout = cardTransform.GetComponent<LayoutElement>();
+        if (fixedLayout == null)
+        {
+            fixedLayout = cardTransform.gameObject.AddComponent<LayoutElement>();
+        }
+
+        fixedLayout.minWidth = Card.FixedSize.x;
+        fixedLayout.minHeight = Card.FixedSize.y;
+        fixedLayout.preferredWidth = Card.FixedSize.x;
+        fixedLayout.preferredHeight = Card.FixedSize.y;
+        fixedLayout.flexibleWidth = 0f;
+        fixedLayout.flexibleHeight = 0f;
+        fixedLayout.ignoreLayout = false;
     }
 
     private static void ForceRebuild(Transform parent)
