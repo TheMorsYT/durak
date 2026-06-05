@@ -4,7 +4,7 @@
 
 This project is a digital adaptation of the popular card game **Durak**. The project implements standard card game logic, a functional user interface, player profile support, and a computer opponent using the **Unity Engine**.
 
-## ✨ Current Features
+## ✨ Current Features 
 
 * **Cross-Platform Support:** Fully playable on **Windows (x64)**, **Android**, and **Linux**.
 * **Linux Port:** Native Linux build support through the Unity executable file `Durak_v8.0.x86_64`.
